@@ -112,22 +112,22 @@ struct _NAME : Serializable {            \
   _NAME() {                              \
     fields_infos_ = &kFieldsInfos[0]; 
 
-#define __INIT_FIELD_IN_CONSTRUCTOR(_TYPE, _FIELD_NAME, _TAG) \
+#define __INIT_FIELD_IN_CONSTRUCTOR(_TYPE, _FIELD_NAME, _TAG, ...) \
   _FIELD_NAME = _TYPE(); 
 
-#define __DECLARE_FIELD(_TYPE, _FIELD_NAME, _TAG) \
+#define __DECLARE_FIELD(_TYPE, _FIELD_NAME, _TAG, ...) \
   _TYPE _FIELD_NAME; \
   enum {__tag_##_FIELD_NAME = _TAG};
 
-#define __FIELD_ENCODE_SIZE(_TYPE, _FIELD_NAME, _TAG) \
+#define __FIELD_ENCODE_SIZE(_TYPE, _FIELD_NAME, _TAG, ...) \
   + sizeof(tag_t) + sizeof(len_t) + EncodeSizeGetter<_TYPE>::encode_size
 
 #define DEF_DATA_CLASS_END               \
   static const FieldInfo kFieldsInfos[]; \
   }; /*class end*/
 
-#define __DEFINE_FIELD_INFO(_TYPE, _FIELD_NAME, _TAG) \
-    { EncodeSizeGetter<_TYPE>::encode_size, offsetof(DataX, _FIELD_NAME), _TAG, &Encoder<_TYPE>::encode, &Decoder<_TYPE>::decode },
+#define __DEFINE_FIELD_INFO(_TYPE, _FIELD_NAME, _TAG, _NAME) \
+    { EncodeSizeGetter<_TYPE>::encode_size, offsetof(_NAME, _FIELD_NAME), _TAG, &Encoder<_TYPE>::encode, &Decoder<_TYPE>::decode },
 
 #define DATA_CLASS_2(_NAME)\
 DATA_CLASS_1(_NAME, __INIT_FIELD_IN_CONSTRUCTOR, __DECLARE_FIELD, __FIELD_ENCODE_SIZE, __DEFINE_FIELD_INFO);
@@ -143,16 +143,19 @@ DEF_DATA_CLASS_BEGIN(_NAME)                                \
   static const FieldInfo kFieldsInfos[];                   \
 }; /*class end*/                                           \
 const FieldInfo _NAME::kFieldsInfos[] = {                  \
-    EXPAND_FIELDS(_M4/*__DEFINE_FIELD_INFO*/)              \
+    EXPAND_FIELDS(_M4/*__DEFINE_FIELD_INFO*/, _NAME)       \
     { 0, kTagInvalid }                                     \
 };
 
 
-#define EXPAND_FIELDS(_) \
-  _(int, a, 1)           \
-  _(int, b, 2)
+
+
+#define EXPAND_FIELDS(_, ...) \
+  _(int, a, 1, __VA_ARGS__)   \
+  _(int, b, 2, __VA_ARGS__)
 
 DATA_CLASS_2(DataX);
+
 
 
 // //struct DataX : Serializable {
