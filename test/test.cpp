@@ -113,16 +113,21 @@ struct _NAME : Serializable {            \
     fields_infos_ = &kFieldsInfos[0]; 
 
 #define EXPAND_FIELDS(_, _NAME) \
-  _(int, a, 1)                  \
-  _(int, b, 2)
+  _(int, a, 1, _NAME)                  \
+  _(int, b, 2, _NAME)
 
-#define __INIT_FIELD_IN_CONSTRUCTOR(_TYPE, _FIELD_NAME, _TAG) \
+#define __INIT_FIELD_IN_CONSTRUCTOR(_TYPE, _FIELD_NAME, _TAG, _NAME) \
   _FIELD_NAME = _TYPE(); 
 
-#define __DECLARE_FIELD(_TYPE, _FIELD_NAME, _TAG) \
+#define __DECLARE_FIELD(_TYPE, _FIELD_NAME, _TAG, _NAME) \
   _TYPE _FIELD_NAME; \
   enum {__tag_##_FIELD_NAME = _TAG};
 
+#define __FIELD_ENCODE_SIZE(_TYPE, _FIELD_NAME, _TAG, _NAME) \
+  + sizeof(tag_t) + sizeof(len_t) + EncodeSizeGetter<_TYPE>::encode_size
+
+#define __DEFINE_FIELD_INFO(_TYPE, _FIELD_NAME, _TAG, _NAME) \
+    { EncodeSizeGetter<_TYPE>::encode_size, offsetof(_NAME, a), __tag_a, &Encoder<_TYPE>::encode, &Decoder<_TYPE>::decode },
 
 //struct DataX : Serializable {
 //  DataX() {
@@ -138,19 +143,20 @@ DEF_DATA(DataX)
   EXPAND_FIELDS(__DECLARE_FIELD, DataX)
 
   enum { encode_size = 0
-           + sizeof(tag_t) + sizeof(len_t) + EncodeSizeGetter<int>::encode_size
-           + sizeof(tag_t) + sizeof(len_t) + EncodeSizeGetter<int>::encode_size
+           //+ sizeof(tag_t) + sizeof(len_t) + EncodeSizeGetter<int>::encode_size
+           //+ sizeof(tag_t) + sizeof(len_t) + EncodeSizeGetter<int>::encode_size
+           EXPAND_FIELDS(__FIELD_ENCODE_SIZE, DataX)
   };
 
   static const FieldInfo kFieldsInfos[];
-};
-
+}; /*class end*/
 const FieldInfo DataX::kFieldsInfos[] = {
-    { EncodeSizeGetter<int>::encode_size, offsetof(DataX, a), __tag_a, &Encoder<int>::encode, &Decoder<int>::decode }
-  , { EncodeSizeGetter<int>::encode_size, offsetof(DataX, b), __tag_b, &Encoder<int>::encode, &Decoder<int>::decode }
-  , { 0, kTagInvalid }
+  
+    { EncodeSizeGetter<int>::encode_size, offsetof(DataX, a), __tag_a, &Encoder<int>::encode, &Decoder<int>::decode },
+    { EncodeSizeGetter<int>::encode_size, offsetof(DataX, b), __tag_b, &Encoder<int>::encode, &Decoder<int>::decode },
+    
+    { 0, kTagInvalid }
 };
-
 
 
 struct DataXN : Serializable {
