@@ -107,49 +107,52 @@ struct Decoder<T, typename boost::enable_if_c<T::encode_size>::type> {
 //   , { 0, kTagInvalid }
 // };
 
-#define DEF_DATA(_NAME)                  \
+#define DEF_DATA_CLASS_BEGIN(_NAME)      \
 struct _NAME : Serializable {            \
   _NAME() {                              \
     fields_infos_ = &kFieldsInfos[0]; 
 
-#define EXPAND_FIELDS(_, _NAME) \
-  _(int, a, 1, _NAME)                  \
-  _(int, b, 2, _NAME)
-
-#define __INIT_FIELD_IN_CONSTRUCTOR(_TYPE, _FIELD_NAME, _TAG, _NAME) \
+#define __INIT_FIELD_IN_CONSTRUCTOR(_TYPE, _FIELD_NAME, _TAG) \
   _FIELD_NAME = _TYPE(); 
 
-#define __DECLARE_FIELD(_TYPE, _FIELD_NAME, _TAG, _NAME) \
+#define __DECLARE_FIELD(_TYPE, _FIELD_NAME, _TAG) \
   _TYPE _FIELD_NAME; \
   enum {__tag_##_FIELD_NAME = _TAG};
 
-#define __FIELD_ENCODE_SIZE(_TYPE, _FIELD_NAME, _TAG, _NAME) \
+#define __FIELD_ENCODE_SIZE(_TYPE, _FIELD_NAME, _TAG) \
   + sizeof(tag_t) + sizeof(len_t) + EncodeSizeGetter<_TYPE>::encode_size
 
-#define __DATAEX_CLASS_END               \
+#define DEF_DATA_CLASS_END               \
   static const FieldInfo kFieldsInfos[]; \
   }; /*class end*/
 
-#define __DEFINE_FIELD_INFO(_TYPE, _FIELD_NAME, _TAG, _NAME) \
-    { EncodeSizeGetter<_TYPE>::encode_size, offsetof(_NAME, _FIELD_NAME), _TAG, &Encoder<_TYPE>::encode, &Decoder<_TYPE>::decode },
+#define __DEFINE_FIELD_INFO(_TYPE, _FIELD_NAME, _TAG) \
+    { EncodeSizeGetter<_TYPE>::encode_size, offsetof(DataX, _FIELD_NAME), _TAG, &Encoder<_TYPE>::encode, &Decoder<_TYPE>::decode },
 
+#define DATA_CLASS_2(_NAME)\
+DATA_CLASS_1(_NAME, __INIT_FIELD_IN_CONSTRUCTOR, __DECLARE_FIELD, __FIELD_ENCODE_SIZE, __DEFINE_FIELD_INFO);
 
-DEF_DATA(DataX)
-  EXPAND_FIELDS(__INIT_FIELD_IN_CONSTRUCTOR, DataX)
-  }
-  
-  EXPAND_FIELDS(__DECLARE_FIELD, DataX)
-
-  enum { encode_size = 0
-     EXPAND_FIELDS(__FIELD_ENCODE_SIZE, DataX)
-  };
-
-__DATAEX_CLASS_END
-const FieldInfo DataX::kFieldsInfos[] = {
-    EXPAND_FIELDS(__DEFINE_FIELD_INFO, DataX)
-    { 0, kTagInvalid }
+#define DATA_CLASS_1(_NAME, _M1, _M2, _M3, _M4)            \
+DEF_DATA_CLASS_BEGIN(_NAME)                                \
+  EXPAND_FIELDS(_M1/*__INIT_FIELD_IN_CONSTRUCTOR*/)        \
+  }                                                        \
+  EXPAND_FIELDS(_M2/*__DECLARE_FIELD*/)                    \
+  enum { encode_size = 0                                   \
+     EXPAND_FIELDS(_M3/*__FIELD_ENCODE_SIZE*/)             \
+  };                                                       \
+  static const FieldInfo kFieldsInfos[];                   \
+}; /*class end*/                                           \
+const FieldInfo _NAME::kFieldsInfos[] = {                  \
+    EXPAND_FIELDS(_M4/*__DEFINE_FIELD_INFO*/)              \
+    { 0, kTagInvalid }                                     \
 };
 
+
+#define EXPAND_FIELDS(_) \
+  _(int, a, 1)           \
+  _(int, b, 2)
+
+DATA_CLASS_2(DataX);
 
 
 // //struct DataX : Serializable {
