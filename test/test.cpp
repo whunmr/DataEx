@@ -126,8 +126,12 @@ struct _NAME : Serializable {            \
 #define __FIELD_ENCODE_SIZE(_TYPE, _FIELD_NAME, _TAG, _NAME) \
   + sizeof(tag_t) + sizeof(len_t) + EncodeSizeGetter<_TYPE>::encode_size
 
+#define __DATAEX_CLASS_END               \
+  static const FieldInfo kFieldsInfos[]; \
+  }; /*class end*/
+
 #define __DEFINE_FIELD_INFO(_TYPE, _FIELD_NAME, _TAG, _NAME) \
-    { EncodeSizeGetter<_TYPE>::encode_size, offsetof(_NAME, a), __tag_a, &Encoder<_TYPE>::encode, &Decoder<_TYPE>::decode },
+    { EncodeSizeGetter<_TYPE>::encode_size, offsetof(_NAME, _FIELD_NAME), _TAG, &Encoder<_TYPE>::encode, &Decoder<_TYPE>::decode },
 
 //struct DataX : Serializable {
 //  DataX() {
@@ -148,16 +152,42 @@ DEF_DATA(DataX)
            EXPAND_FIELDS(__FIELD_ENCODE_SIZE, DataX)
   };
 
-  static const FieldInfo kFieldsInfos[];
-}; /*class end*/
+__DATAEX_CLASS_END
 const FieldInfo DataX::kFieldsInfos[] = {
-  
-    { EncodeSizeGetter<int>::encode_size, offsetof(DataX, a), __tag_a, &Encoder<int>::encode, &Decoder<int>::decode },
-    { EncodeSizeGetter<int>::encode_size, offsetof(DataX, b), __tag_b, &Encoder<int>::encode, &Decoder<int>::decode },
-    
+    //{ EncodeSizeGetter<int>::encode_size, offsetof(DataX, a), __tag_a, &Encoder<int>::encode, &Decoder<int>::decode },
+    //{ EncodeSizeGetter<int>::encode_size, offsetof(DataX, b), __tag_b, &Encoder<int>::encode, &Decoder<int>::decode },
+    EXPAND_FIELDS(__DEFINE_FIELD_INFO, DataX)
     { 0, kTagInvalid }
 };
 
+
+// //struct DataX : Serializable {
+// //  DataX() {
+// //    fields_infos_ = &kFieldsInfos[0];
+// DEF_DATA(DataX)
+//     //  a = int();
+//     //  b = int();
+//   EXPAND_FIELDS(__INIT_FIELD_IN_CONSTRUCTOR, DataX)
+//   }
+//   
+//   //int a; enum {__tag_a = 1};  
+//   //int b; enum {__tag_b = 2};
+//   EXPAND_FIELDS(__DECLARE_FIELD, DataX)
+// 
+//   enum { encode_size = 0
+//            //+ sizeof(tag_t) + sizeof(len_t) + EncodeSizeGetter<int>::encode_size
+//            //+ sizeof(tag_t) + sizeof(len_t) + EncodeSizeGetter<int>::encode_size
+//            EXPAND_FIELDS(__FIELD_ENCODE_SIZE, DataX)
+//   };
+// 
+// __DATAEX_CLASS_END
+// const FieldInfo DataX::kFieldsInfos[] = {
+//     //{ EncodeSizeGetter<int>::encode_size, offsetof(DataX, a), __tag_a, &Encoder<int>::encode, &Decoder<int>::decode },
+//     //{ EncodeSizeGetter<int>::encode_size, offsetof(DataX, b), __tag_b, &Encoder<int>::encode, &Decoder<int>::decode },
+//     EXPAND_FIELDS(__DEFINE_FIELD_INFO, DataX)
+//     { 0, kTagInvalid }
+// };
+// 
 
 struct DataXN : Serializable {
   DataXN() {
