@@ -74,135 +74,6 @@ struct Decoder<T, typename boost::enable_if_c<T::encode_size>::type> {
   }
 };
 
-
-#define DEF_DATA_CLASS_BEGIN(_NAME)      \
-struct _NAME : Serializable {            \
-  _NAME() {                              \
-    fields_infos_ = &kFieldsInfos[0]; 
-
-#define __INIT_FIELD_IN_CONSTRUCTOR(_TYPE, _FIELD_NAME, _TAG, ...) \
-  _FIELD_NAME = _TYPE(); 
-
-#define __DECLARE_FIELD(_TYPE, _FIELD_NAME, _TAG, ...) \
-  _TYPE _FIELD_NAME; \
-  enum {__tag_##_FIELD_NAME = _TAG};
-
-#define __FIELD_ENCODE_SIZE(_TYPE, _FIELD_NAME, _TAG, ...) \
-  + sizeof(tag_t) + sizeof(len_t) + EncodeSizeGetter<_TYPE>::encode_size
-
-#define __DEFINE_FIELD_INFO(_TYPE, _FIELD_NAME, _TAG, _NAME) \
-    { EncodeSizeGetter<_TYPE>::encode_size, offsetof(_NAME, _FIELD_NAME), _TAG, &Encoder<_TYPE>::encode, &Decoder<_TYPE>::decode },
-
-#define DEF_DATA_CLASS(_NAME)\
-DATA_CLASS_1(EXPAND_FIELDS_##_NAME, _NAME, __INIT_FIELD_IN_CONSTRUCTOR, __DECLARE_FIELD, __FIELD_ENCODE_SIZE, __DEFINE_FIELD_INFO);
-
-#define DATA_CLASS_1(EXPAND_FIELDS, _NAME, _M1, _M2, _M3, _M4)    \
-DEF_DATA_CLASS_BEGIN(_NAME)                                       \
-  EXPAND_FIELDS(_M1/*__INIT_FIELD_IN_CONSTRUCTOR*/)               \
-  }                                                               \
-  EXPAND_FIELDS(_M2/*__DECLARE_FIELD*/)                           \
-  enum { encode_size = 0                                          \
-     EXPAND_FIELDS(_M3/*__FIELD_ENCODE_SIZE*/)                    \
-  };                                                              \
-  static const FieldInfo kFieldsInfos[];                          \
-}; /*class end*/                                                  \
-const FieldInfo _NAME::kFieldsInfos[] = {                         \
-    EXPAND_FIELDS(_M4/*__DEFINE_FIELD_INFO*/, _NAME)              \
-    { 0, kTagInvalid }                                            \
-};
-
-
-/*----------------------------------------------------------------------------*/
-#define EXPAND_FIELDS_DataX(_, ...)  \
-  _(int, a, 1 , __VA_ARGS__)         \
-  _(int, b, 2 , __VA_ARGS__)
-
-DEF_DATA_CLASS(DataX);
-
-/*----------------------------------------------------------------------------*/
-#define EXPAND_FIELDS_DataXN(_, ...)  \
-  _(int, a, 1 , __VA_ARGS__)          \
-  _(DataX, x, 2 , __VA_ARGS__)        \
-  _(int, b, 3 , __VA_ARGS__)
-
-DEF_DATA_CLASS(DataXN);
-
-
-/*----------------------------------------------------------------------------*/
-// struct DataX : Serializable {
-//   DataX() {
-//     fields_infos_ = &kFieldsInfos[0];      
-//     a = int();
-//     b = int();
-//   }
-//   
-//   int a; enum {__tag_a = 1};  
-//   int b; enum {__tag_b = 2};
-//   enum {__field_count = 2};
-//   uint8_t fields_presence_[__field_count / 8 + 1];
-//   enum { encode_size = ENCODE_SIZE_TLV(int) + ENCODE_SIZE_TLV(int) };
-//   
-//   static const FieldInfo kFieldsInfos[];
-// };
-// 
-// const FieldInfo DataX::kFieldsInfos[] = {
-//     { EncodeSizeGetter<int>::encode_size, offsetof(DataX, a), __tag_a, &Encoder<int>::encode, &Decoder<int>::decode }
-//   , { EncodeSizeGetter<int>::encode_size, offsetof(DataX, b), __tag_b, &Encoder<int>::encode, &Decoder<int>::decode }
-//   , { 0, kTagInvalid }
-// };
-
-// //struct DataX : Serializable {
-// //  DataX() {
-// //    fields_infos_ = &kFieldsInfos[0];
-// DEF_DATA(DataX)
-//     //  a = int();
-//     //  b = int();
-//   EXPAND_FIELDS(__INIT_FIELD_IN_CONSTRUCTOR, DataX)
-//   }
-//   
-//   //int a; enum {__tag_a = 1};  
-//   //int b; enum {__tag_b = 2};
-//   EXPAND_FIELDS(__DECLARE_FIELD, DataX)
-// 
-//   enum { encode_size = 0
-//            //+ sizeof(tag_t) + sizeof(len_t) + EncodeSizeGetter<int>::encode_size
-//            //+ sizeof(tag_t) + sizeof(len_t) + EncodeSizeGetter<int>::encode_size
-//            EXPAND_FIELDS(__FIELD_ENCODE_SIZE, DataX)
-//   };
-// 
-// __DATAEX_CLASS_END
-// const FieldInfo DataX::kFieldsInfos[] = {
-//     //{ EncodeSizeGetter<int>::encode_size, offsetof(DataX, a), __tag_a, &Encoder<int>::encode, &Decoder<int>::decode },
-//     //{ EncodeSizeGetter<int>::encode_size, offsetof(DataX, b), __tag_b, &Encoder<int>::encode, &Decoder<int>::decode },
-//     EXPAND_FIELDS(__DEFINE_FIELD_INFO, DataX)
-//     { 0, kTagInvalid }
-// };
-// 
-
-//  struct DataXN : Serializable {
-//    DataXN() {
-//      fields_infos_ = &kFieldsInfos[0];      
-//      a = int();
-//      x = DataX();
-//      b = int();    
-//    }
-//  
-//    int   a; enum {__tag_a = 1};
-//    DataX x; enum {__tag_x = 2};
-//    int   b; enum {__tag_b = 3};
-//    enum { encode_size = 0 + ENCODE_SIZE_TLV(int) + ENCODE_SIZE_TLV(DataX) + ENCODE_SIZE_TLV(int) };
-//  
-//    static const FieldInfo kFieldsInfos[];
-//  };
-//  
-//  const FieldInfo DataXN::kFieldsInfos[] = {
-//   { EncodeSizeGetter<int>::encode_size   , offsetof(DataXN, a), __tag_a, &Encoder<int>::encode   , &Decoder<int>::decode}
-//  ,{ EncodeSizeGetter<DataX>::encode_size , offsetof(DataXN, x), __tag_x, &Encoder<DataX>::encode , &Decoder<DataX>::decode}
-//  ,{ EncodeSizeGetter<int>::encode_size   , offsetof(DataXN, b), __tag_b, &Encoder<int>::encode   , &Decoder<int>::decode}
-//  ,{ 0, 0, kTagInvalid, NULL }
-//  };
-
-
 void* __encode(const Serializable& d, void* p) {
   for (const FieldInfo* fi = &d.fields_infos_[0]; fi->tag_ != kTagInvalid; ++fi) {
     *((tag_t*)p) = fi->tag_;
@@ -240,6 +111,150 @@ void* __decode(Serializable& d, void* p, size_t total_len) {
 }
 
 /*----------------------------------------------------------------------------*/
+#define DEF_DATA_CLASS_BEGIN(_NAME)      \
+struct _NAME : Serializable {            \
+  _NAME() {                              \
+    fields_infos_ = &kFieldsInfos[0]; 
+
+#define __INIT_FIELD_IN_CONSTRUCTOR(_TYPE, _FIELD_NAME, _TAG, ...) _FIELD_NAME = _TYPE();
+
+#define __DECLARE_FIELD(_TYPE, _FIELD_NAME, _TAG, ...) \
+  _TYPE _FIELD_NAME;                                   \
+  enum {__tag_##_FIELD_NAME = _TAG};
+
+#define __FIELD_ENCODE_SIZE(_TYPE, _FIELD_NAME, _TAG, ...) \
+  + sizeof(tag_t) + sizeof(len_t) + EncodeSizeGetter<_TYPE>::encode_size
+
+#define __DEFINE_FIELD_INFO(_TYPE, _FIELD_NAME, _TAG, _NAME) \
+    { EncodeSizeGetter<_TYPE>::encode_size                   \
+    , offsetof(_NAME, _FIELD_NAME)                           \
+    , _TAG                                                   \
+    , &Encoder<_TYPE>::encode                                \
+    , &Decoder<_TYPE>::decode }, 
+
+#define DEF_DATA_CLASS(_NAME)                      \
+DEF_DATA_CLASS_1( EXPAND_FIELDS_##_NAME            \
+                , _NAME                            \
+                , __INIT_FIELD_IN_CONSTRUCTOR      \
+                , __DECLARE_FIELD                  \
+                , __FIELD_ENCODE_SIZE              \
+                , __DEFINE_FIELD_INFO); 
+
+#define DEF_DATA_CLASS_1(EXPAND_FIELDS, _NAME, _M1, _M2, _M3, _M4) \
+DEF_DATA_CLASS_BEGIN(_NAME)                                        \
+  EXPAND_FIELDS(_M1/*__INIT_FIELD_IN_CONSTRUCTOR*/)                \
+  }                                                                \
+  EXPAND_FIELDS(_M2/*__DECLARE_FIELD*/)                            \
+  enum { encode_size = 0                                           \
+     EXPAND_FIELDS(_M3/*__FIELD_ENCODE_SIZE*/)                     \
+  };                                                               \
+  static const FieldInfo kFieldsInfos[];                           \
+}; /*class end*/                                                   \
+const FieldInfo _NAME::kFieldsInfos[] = {                          \
+    EXPAND_FIELDS(_M4/*__DEFINE_FIELD_INFO*/, _NAME)               \
+    { 0, kTagInvalid }                                             \
+};
+
+
+/*----------------------------------------------------------------------------*/
+#define EXPAND_FIELDS_SingleFieldData(_, ...)  \
+  _(int, a, 1 , __VA_ARGS__)         
+
+DEF_DATA_CLASS(SingleFieldData);
+
+/*----------------------------------------------------------------------------*/
+// #define EXPAND_FIELDS_DataX(_, ...)  \
+//   _(int, a, 1 , __VA_ARGS__)         \
+//   _(int, b, 2 , __VA_ARGS__)
+// 
+// DEF_DATA_CLASS(DataX);
+
+struct DataX : Serializable {
+  DataX() {
+    fields_infos_ = &kFieldsInfos[0];      
+    a = int();
+    b = int();
+  }
+  
+  int a; enum {__tag_a = 1};  
+  int b; enum {__tag_b = 2};
+  enum {__field_count = 2};
+  uint8_t fields_presence_[__field_count / 8 + 1];
+  enum { encode_size = 0 + sizeof(tag_t) + sizeof(len_t) + EncodeSizeGetter<int>::encode_size
+                         + sizeof(tag_t) + sizeof(len_t) + EncodeSizeGetter<int>::encode_size };
+  static const FieldInfo kFieldsInfos[];
+};
+
+const FieldInfo DataX::kFieldsInfos[] = {
+    { EncodeSizeGetter<int>::encode_size, offsetof(DataX, a), __tag_a, &Encoder<int>::encode, &Decoder<int>::decode }
+  , { EncodeSizeGetter<int>::encode_size, offsetof(DataX, b), __tag_b, &Encoder<int>::encode, &Decoder<int>::decode }
+  , { 0, kTagInvalid }
+};
+
+/*----------------------------------------------------------------------------*/
+#define EXPAND_FIELDS_DataWithNested(_, ...)  \
+  _(int  , a, 1 , __VA_ARGS__)                \
+  _(DataX, x, 2 , __VA_ARGS__)                \
+  _(int  , b, 3 , __VA_ARGS__)
+
+DEF_DATA_CLASS(DataWithNested);
+
+/*----------------------------------------------------------------------------*/
+
+
+// //struct DataX : Serializable {
+// //  DataX() {
+// //    fields_infos_ = &kFieldsInfos[0];
+// DEF_DATA(DataX)
+//     //  a = int();
+//     //  b = int();
+//   EXPAND_FIELDS(__INIT_FIELD_IN_CONSTRUCTOR, DataX)
+//   }
+//   
+//   //int a; enum {__tag_a = 1};  
+//   //int b; enum {__tag_b = 2};
+//   EXPAND_FIELDS(__DECLARE_FIELD, DataX)
+// 
+//   enum { encode_size = 0
+//            //+ sizeof(tag_t) + sizeof(len_t) + EncodeSizeGetter<int>::encode_size
+//            //+ sizeof(tag_t) + sizeof(len_t) + EncodeSizeGetter<int>::encode_size
+//            EXPAND_FIELDS(__FIELD_ENCODE_SIZE, DataX)
+//   };
+// 
+// __DATAEX_CLASS_END
+// const FieldInfo DataX::kFieldsInfos[] = {
+//     //{ EncodeSizeGetter<int>::encode_size, offsetof(DataX, a), __tag_a, &Encoder<int>::encode, &Decoder<int>::decode },
+//     //{ EncodeSizeGetter<int>::encode_size, offsetof(DataX, b), __tag_b, &Encoder<int>::encode, &Decoder<int>::decode },
+//     EXPAND_FIELDS(__DEFINE_FIELD_INFO, DataX)
+//     { 0, kTagInvalid }
+// };
+// 
+
+//  struct DataWithNested : Serializable {
+//    DataWithNested() {
+//      fields_infos_ = &kFieldsInfos[0];      
+//      a = int();
+//      x = DataX();
+//      b = int();    
+//    }
+//  
+//    int   a; enum {__tag_a = 1};
+//    DataX x; enum {__tag_x = 2};
+//    int   b; enum {__tag_b = 3};
+//    enum { encode_size = 0 + ENCODE_SIZE_TLV(int) + ENCODE_SIZE_TLV(DataX) + ENCODE_SIZE_TLV(int) };
+//  
+//    static const FieldInfo kFieldsInfos[];
+//  };
+//  
+//  const FieldInfo DataWithNested::kFieldsInfos[] = {
+//   { EncodeSizeGetter<int>::encode_size   , offsetof(DataWithNested, a), __tag_a, &Encoder<int>::encode   , &Decoder<int>::decode}
+//  ,{ EncodeSizeGetter<DataX>::encode_size , offsetof(DataWithNested, x), __tag_x, &Encoder<DataX>::encode , &Decoder<DataX>::decode}
+//  ,{ EncodeSizeGetter<int>::encode_size   , offsetof(DataWithNested, b), __tag_b, &Encoder<int>::encode   , &Decoder<int>::decode}
+//  ,{ 0, 0, kTagInvalid, NULL }
+//  };
+
+
+/*----------------------------------------------------------------------------*/
     unsigned char g_buf[32 * 1024];
 
     template<typename T, size_t size, size_t n>
@@ -260,15 +275,30 @@ void* __decode(Serializable& d, void* p, size_t total_len) {
     #define ENCODE_SIZE_TLV(type) (ENCODE_SIZE_TL + EncodeSizeGetter<type>::encode_size)
 
 /*----------------------------------------------------------------------------*/
+TEST(SingleFieldData, size_of_struct__should_be_total_of__TLVs) {
+  EXPECT_EQ(ENCODE_SIZE_TLV(int)/*a*/, SingleFieldData::encode_size);
+}
+
 TEST(DataX, size_of_struct__should_be_total_of__TLVs) {
   EXPECT_EQ(ENCODE_SIZE_TLV(int)/*a*/+ ENCODE_SIZE_TLV(int)/*b*/, DataX::encode_size);
 }
 
-TEST(DataXN, size_of_struct_with_nested_struct) {
+TEST(DataWithNested, size_of_struct_with_nested_struct) {
   size_t expected = ENCODE_SIZE_TLV(int) /*a*/
                   + ENCODE_SIZE_TL /*TL of nested X*/ + DataX::encode_size /*encoded X*/
                   + ENCODE_SIZE_TLV(int) /*b*/;
-  EXPECT_EQ(expected, DataXN::encode_size);
+  EXPECT_EQ(expected, DataWithNested::encode_size);
+}
+
+/*----------------------------------------------------------------------------*/
+TEST(SingleFieldData, should_able_to_encode_SingleFieldData) {
+  SingleFieldData x;
+  x.a = 0x12345678;
+  __encode(x, g_buf);
+
+  unsigned char expected[] = { 0x01, 0x04, 0x00, 0x78, 0x56, 0x34, 0x12};
+
+  EXPECT_TRUE(ArraysMatch(expected, g_buf));
 }
 
 TEST(DataX, should_able_to_encode_normal_struct) {
@@ -282,8 +312,8 @@ TEST(DataX, should_able_to_encode_normal_struct) {
   EXPECT_TRUE(ArraysMatch(expected, g_buf));
 }
 
-TEST(DataXN, should_able_to_encode_struct_with_nested_struct) {
-  DataXN xn;
+TEST(DataWithNested, should_able_to_encode_struct_with_nested_struct) {
+  DataWithNested xn;
   xn.a = 0xCAFEBABE;
   xn.x.a = 0x12345678;
   xn.x.b = 0x11223344;
@@ -300,6 +330,16 @@ TEST(DataXN, should_able_to_encode_struct_with_nested_struct) {
   EXPECT_TRUE(ArraysMatch(expected, g_buf));
 }
 
+/*----------------------------------------------------------------------------*/
+TEST(SingleFieldData, should_able_to_decode_SingleFieldData) {
+  SingleFieldData x;
+  unsigned char expected[] = { 0x01, 0x04, 0x00, 0x78, 0x56, 0x34, 0x12};
+
+  __decode(x, expected, sizeof(expected));
+
+  EXPECT_EQ(0x12345678, x.a);
+}
+
 TEST(DataX, should_able_to_decode_normal_struct) {
   DataX x;
   unsigned char expected[] = { 0x01, 0x04, 0x00, 0x78, 0x56, 0x34, 0x12
@@ -311,11 +351,11 @@ TEST(DataX, should_able_to_decode_normal_struct) {
   EXPECT_EQ(0x11223344, x.b);
 }
 
-TEST(DataXN, should_able_to_decode_struct_with_nested_struct) {
-  DataXN xn;
+TEST(DataWithNested, should_able_to_decode_struct_with_nested_struct) {
+  DataWithNested xn;
 
   unsigned char expected[] = { 0x01, 0x04, 0x00, 0xBE, 0xBA, 0xFE, 0xCA
-                             , 0x02, 0x0E, 0x00 /*T and L of nested X */
+                             , 0x02, 0x0E, 0x00 /*T and L of nested X*/
                              , 0x01, 0x04, 0x00, 0x78, 0x56, 0x34, 0x12
                              , 0x02, 0x04, 0x00, 0x44, 0x33, 0x22, 0x11
                              , 0x03, 0x04, 0x00, 0xEF, 0xBE, 0xAD, 0xDE };
@@ -328,8 +368,7 @@ TEST(DataXN, should_able_to_decode_struct_with_nested_struct) {
   EXPECT_EQ(0xDEADBEEF, xn.b);
 }
 
-
-
+/*----------------------------------------------------------------------------*/
 TEST(DataX, should_ignore_unknown_tag__WHEN___decode_normal_struct) {
   DataX x;
   unsigned char expected[] = { 0x01, 0x04, 0x00, 0x78, 0x56, 0x34, 0x12
@@ -342,8 +381,8 @@ TEST(DataX, should_ignore_unknown_tag__WHEN___decode_normal_struct) {
   EXPECT_EQ(0x11223344, x.b);
 }
 
-TEST(DataXN, should_ignore_unknown_tag__WHEN__decode_struct_with_nested_struct) {
-  DataXN xn;
+TEST(DataWithNested, should_ignore_unknown_tag__WHEN__decode_struct_with_nested_struct) {
+  DataWithNested xn;
 
   unsigned char expected[] = { 0x01, 0x04, 0x00, 0xBE, 0xBA, 0xFE, 0xCA
                              , 0x09, 0x03, 0x00, 0x01, 0x02, 0x03       /*unknown tag 0x09*/
@@ -361,6 +400,9 @@ TEST(DataXN, should_ignore_unknown_tag__WHEN__decode_struct_with_nested_struct) 
   EXPECT_EQ(0x11223344, xn.x.b);
   EXPECT_EQ(0xDEADBEEF, xn.b);
 }
+
+/*----------------------------------------------------------------------------*/
+
 
 /*------------------------------------------------------------------------------
 TODO:
