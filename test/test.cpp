@@ -112,25 +112,27 @@ void* __decode(Serializable& d, void* p, size_t total_len) {
 
 /*----------------------------------------------------------------------------*/
 #define DEF_DATA_CLASS_BEGIN(_NAME)      \
+namespace __NS_##_NAME {                 \
 struct _NAME : Serializable {            \
   _NAME() {                              \
     fields_infos_ = &kFieldsInfos[0]; 
 
-#define __INIT_FIELD_IN_CONSTRUCTOR(_TYPE, _FIELD_NAME, _TAG, ...) _FIELD_NAME = _TYPE();
+#define __INIT_FIELD_IN_CONSTRUCTOR(_TYPE, _FIELD_NAME, _TAG) _FIELD_NAME = _TYPE();
 
-#define __DECLARE_FIELD(_TYPE, _FIELD_NAME, _TAG, ...) \
+#define __DECLARE_FIELD(_TYPE, _FIELD_NAME, _TAG) \
   _TYPE _FIELD_NAME;                                   \
   enum {__tag_##_FIELD_NAME = _TAG};
 
-#define __FIELD_ENCODE_SIZE(_TYPE, _FIELD_NAME, _TAG, ...) \
+#define __FIELD_ENCODE_SIZE(_TYPE, _FIELD_NAME, _TAG) \
   + sizeof(tag_t) + sizeof(len_t) + EncodeSizeGetter<_TYPE>::encode_size
 
-#define __DEFINE_FIELD_INFO(_TYPE, _FIELD_NAME, _TAG, _NAME) \
-    { EncodeSizeGetter<_TYPE>::encode_size                   \
-    , offsetof(_NAME, _FIELD_NAME)                           \
-    , _TAG                                                   \
-    , &Encoder<_TYPE>::encode                                \
+#define __DEFINE_FIELD_INFO(_TYPE, _FIELD_NAME, _TAG) \
+    { EncodeSizeGetter<_TYPE>::encode_size            \
+    , offsetof(DataType, _FIELD_NAME)                 \
+    , _TAG                                            \
+    , &Encoder<_TYPE>::encode                         \
     , &Decoder<_TYPE>::decode }, 
+
 
 #define DEF_DATA_CLASS(_NAME)                      \
 DEF_DATA_CLASS_1( EXPAND_FIELDS_##_NAME            \
@@ -150,86 +152,65 @@ DEF_DATA_CLASS_BEGIN(_NAME)                                        \
   };                                                               \
   static const FieldInfo kFieldsInfos[];                           \
 }; /*class end*/                                                   \
+typedef _NAME DataType;                                            \
 const FieldInfo _NAME::kFieldsInfos[] = {                          \
-    EXPAND_FIELDS(_M4/*__DEFINE_FIELD_INFO*/, _NAME)               \
+    EXPAND_FIELDS(_M4/*__DEFINE_FIELD_INFO*/)                      \
     { 0, kTagInvalid }                                             \
-};
-
+};                                                                 \
+}  /*namespace end*/                                               \
+using __NS_##_NAME::_NAME;
 
 /*----------------------------------------------------------------------------*/
-#define EXPAND_FIELDS_SingleFieldData(_, ...)  \
-  _(int, a, 1 , __VA_ARGS__)         
+#define EXPAND_FIELDS_SingleFieldData(_)  \
+  _(int, a, 1)
 
 DEF_DATA_CLASS(SingleFieldData);
 
 /*----------------------------------------------------------------------------*/
-// #define EXPAND_FIELDS_DataX(_, ...)  \
-//   _(int, a, 1 , __VA_ARGS__)         \
-//   _(int, b, 2 , __VA_ARGS__)
-// 
-// DEF_DATA_CLASS(DataX);
+#define EXPAND_FIELDS_DataX(_)  \
+  _(int, a, 1)                  \
+  _(int, b, 2)
 
-struct DataX : Serializable {
-  DataX() {
-    fields_infos_ = &kFieldsInfos[0];      
-    a = int();
-    b = int();
-  }
-  
-  int a; enum {__tag_a = 1};  
-  int b; enum {__tag_b = 2};
-  enum {__field_count = 2};
-  uint8_t fields_presence_[__field_count / 8 + 1];
-  enum { encode_size = 0 + sizeof(tag_t) + sizeof(len_t) + EncodeSizeGetter<int>::encode_size
-                         + sizeof(tag_t) + sizeof(len_t) + EncodeSizeGetter<int>::encode_size };
-  static const FieldInfo kFieldsInfos[];
-};
+DEF_DATA_CLASS(DataX);
 
-const FieldInfo DataX::kFieldsInfos[] = {
-    { EncodeSizeGetter<int>::encode_size, offsetof(DataX, a), __tag_a, &Encoder<int>::encode, &Decoder<int>::decode }
-  , { EncodeSizeGetter<int>::encode_size, offsetof(DataX, b), __tag_b, &Encoder<int>::encode, &Decoder<int>::decode }
-  , { 0, kTagInvalid }
-};
 
 /*----------------------------------------------------------------------------*/
-#define EXPAND_FIELDS_DataWithNested(_, ...)  \
-  _(int  , a, 1 , __VA_ARGS__)                \
-  _(DataX, x, 2 , __VA_ARGS__)                \
-  _(int  , b, 3 , __VA_ARGS__)
+#define EXPAND_FIELDS_DataWithNested(_)  \
+  _(int  , a, 1)                         \
+  _(DataX, x, 2)                         \
+  _(int  , b, 3)
 
 DEF_DATA_CLASS(DataWithNested);
 
 /*----------------------------------------------------------------------------*/
+//namespace _DataX {
+//  struct DataX : Serializable {
+//    DataX() {
+//      fields_infos_ = &kFieldsInfos[0];      
+//      a = int();
+//      b = int();
+//    }
+//    
+//    int a; enum {__tag_a = 1};
+//    int b; enum {__tag_b = 2};
+//    enum {__field_count = 2};
+//    uint8_t fields_presence_[__field_count / 8 + 1];
+//    enum { encode_size = 0 + sizeof(tag_t) + sizeof(len_t) + EncodeSizeGetter<int>::encode_size
+//                           + sizeof(tag_t) + sizeof(len_t) + EncodeSizeGetter<int>::encode_size };
+//    static const FieldInfo kFieldsInfos[];
+//  };
+//  
+//  typedef DataX DataType;
+//  
+//  const FieldInfo DataX::kFieldsInfos[] = {
+//      { EncodeSizeGetter<int>::encode_size, offsetof(DataType, a), __tag_a, &Encoder<int>::encode, &Decoder<int>::decode }
+//    , { EncodeSizeGetter<int>::encode_size, offsetof(DataType, b), __tag_b, &Encoder<int>::encode, &Decoder<int>::decode }
+//    , { 0, kTagInvalid }
+//  };
+//}
+//using _DataX::DataX;
 
-
-// //struct DataX : Serializable {
-// //  DataX() {
-// //    fields_infos_ = &kFieldsInfos[0];
-// DEF_DATA(DataX)
-//     //  a = int();
-//     //  b = int();
-//   EXPAND_FIELDS(__INIT_FIELD_IN_CONSTRUCTOR, DataX)
-//   }
-//   
-//   //int a; enum {__tag_a = 1};  
-//   //int b; enum {__tag_b = 2};
-//   EXPAND_FIELDS(__DECLARE_FIELD, DataX)
-// 
-//   enum { encode_size = 0
-//            //+ sizeof(tag_t) + sizeof(len_t) + EncodeSizeGetter<int>::encode_size
-//            //+ sizeof(tag_t) + sizeof(len_t) + EncodeSizeGetter<int>::encode_size
-//            EXPAND_FIELDS(__FIELD_ENCODE_SIZE, DataX)
-//   };
-// 
-// __DATAEX_CLASS_END
-// const FieldInfo DataX::kFieldsInfos[] = {
-//     //{ EncodeSizeGetter<int>::encode_size, offsetof(DataX, a), __tag_a, &Encoder<int>::encode, &Decoder<int>::decode },
-//     //{ EncodeSizeGetter<int>::encode_size, offsetof(DataX, b), __tag_b, &Encoder<int>::encode, &Decoder<int>::decode },
-//     EXPAND_FIELDS(__DEFINE_FIELD_INFO, DataX)
-//     { 0, kTagInvalid }
-// };
-// 
-
+/*----------------------------------------------------------------------------*/
 //  struct DataWithNested : Serializable {
 //    DataWithNested() {
 //      fields_infos_ = &kFieldsInfos[0];      
@@ -411,4 +392,6 @@ TODO:
 - too much duplicaate code
 - enum {__field_count = 2};
   uint8_t fields_presence_[__field_count / 8 + 1];
+- support varible length data.  data[0]
+- support string 
 ------------------------------------------------------------------------------*/
