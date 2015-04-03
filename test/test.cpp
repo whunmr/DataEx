@@ -5,6 +5,7 @@
 #include <mockcpp/mockcpp.hpp>
 #include <boost/utility/enable_if.hpp>
 #include <boost/type_traits.hpp>
+#include <boost/array.hpp>
 USING_MOCKCPP_NS;
 using namespace std;
 
@@ -55,6 +56,15 @@ struct Encoder<T, typename boost::enable_if_c<T::encode_size>::type> {
   static void encode(const void* instance, size_t field_offset, void*& p) {
     Serializable& nested = *(Serializable*)( ((uint8_t*)instance) + field_offset );
     p = __encode(nested, p);
+  }
+};
+
+//template<typename T, size_t N>
+template<>
+struct Encoder<char[10], void /*, typename boost::enable_if_c<T::encode_size>::type*/> {
+  static void encode(const void* instance, size_t field_offset, void*& p) {
+    //Serializable& nested = *(Serializable*)( ((uint8_t*)instance) + field_offset );
+    //p = __encode(nested, p);
   }
 };
 
@@ -117,7 +127,7 @@ struct _NAME : Serializable {            \
   _NAME() {                              \
     fields_infos_ = &kFieldsInfos[0]; 
 
-#define __INIT_FIELD_IN_CONSTRUCTOR(_TYPE, _FIELD_NAME, _TAG) _FIELD_NAME = _TYPE();
+#define __INIT_FIELD_IN_CONSTRUCTOR(_TYPE, _FIELD_NAME, _TAG) /*_FIELD_NAME = _TYPE();*/
 
 #define __DECLARE_FIELD(_TYPE, _FIELD_NAME, _TAG) \
   _TYPE _FIELD_NAME;                              \
@@ -183,12 +193,17 @@ DEF_DATA(SingleFieldData);
 DEF_DATA(DataX);
 
 /*----------------------------------------------------------------------------*/
-#define EXPAND_FIELDS_DataWithNested(_)  \
-  _(int  , a, 1)                         \
-  _(DataX, x, 2)                         \
-  _(int  , b, 3)
+typedef boost::array<char, 3> DataWithNested_char_3;
+
+#define EXPAND_FIELDS_DataWithNested(_) \
+  _(int  , a, 1)                        \
+  _(DataX, x, 2)                        \
+  _(int  , b, 3)                        \
+  _(char , c, 4)                        \
+  _(DataWithNested_char_3, d, 5)
 
 DEF_DATA(DataWithNested);
+
 /*----------------------------------------------------------------------------*/
 //namespace _DataX {
 //  struct DataX : Serializable {
@@ -274,7 +289,9 @@ TEST(DataX, size_of_struct__should_be_total_of__TLVs) {
 TEST(DataWithNested, size_of_struct_with_nested_struct) {
   size_t expected = ENCODE_SIZE_TLV(int) /*a*/
                   + ENCODE_SIZE_TL /*TL of nested X*/ + DataX::encode_size /*encoded X*/
-                  + ENCODE_SIZE_TLV(int) /*b*/;
+                  + ENCODE_SIZE_TLV(int)  /*b*/
+                  + ENCODE_SIZE_TLV(char) /*c*/
+                  + ENCODE_SIZE_TLV(DataWithNested_char_3)  /*d*/;
   EXPECT_EQ(expected, DataWithNested::encode_size);
 }
 
@@ -306,6 +323,10 @@ TEST(DataWithNested, should_able_to_encode_struct_with_nested_struct) {
   xn.x.a = 0x12345678;
   xn.x.b = 0x11223344;
   xn.b = 0xDEADBEEF;
+  xn.c = 0x45;
+  xn.d[0] = 'X';
+  xn.d[1] = 'Y';
+  xn.d[2] = 'Z';
 
   __encode(xn, g_buf);
 
@@ -313,7 +334,9 @@ TEST(DataWithNested, should_able_to_encode_struct_with_nested_struct) {
                              , 0x02, 0x0E, 0x00 /*T and L of nested X*/
                              , 0x01, 0x04, 0x00, 0x78, 0x56, 0x34, 0x12
                              , 0x02, 0x04, 0x00, 0x44, 0x33, 0x22, 0x11
-                             , 0x03, 0x04, 0x00, 0xEF, 0xBE, 0xAD, 0xDE };
+                             , 0x03, 0x04, 0x00, 0xEF, 0xBE, 0xAD, 0xDE
+                             , 0x04, 0x01, 0x00, 0x45
+                             , 0x05, 0x03, 0x00, 'X', 'Y', 'Z'};
 
   EXPECT_TRUE(ArraysMatch(expected, g_buf));
 }
@@ -346,7 +369,9 @@ TEST(DataWithNested, should_able_to_decode_struct_with_nested_struct) {
                              , 0x02, 0x0E, 0x00 /*T and L of nested X*/
                              , 0x01, 0x04, 0x00, 0x78, 0x56, 0x34, 0x12
                              , 0x02, 0x04, 0x00, 0x44, 0x33, 0x22, 0x11
-                             , 0x03, 0x04, 0x00, 0xEF, 0xBE, 0xAD, 0xDE };
+                             , 0x03, 0x04, 0x00, 0xEF, 0xBE, 0xAD, 0xDE
+                             , 0x04, 0x01, 0x00, 0x45
+                             , 0x05, 0x03, 0x00, 'X', 'Y', 'Z'};
 
   __decode(xn, expected, sizeof(expected));
   
@@ -354,6 +379,10 @@ TEST(DataWithNested, should_able_to_decode_struct_with_nested_struct) {
   EXPECT_EQ(0x12345678, xn.x.a);
   EXPECT_EQ(0x11223344, xn.x.b);
   EXPECT_EQ(0xDEADBEEF, xn.b);
+  EXPECT_EQ(0x45,       xn.c);
+  EXPECT_EQ('X',       xn.d[0]);
+  EXPECT_EQ('Y',       xn.d[1]);
+  EXPECT_EQ('Z',       xn.d[2]);
 }
 
 /*----------------------------------------------------------------------------*/
@@ -374,12 +403,13 @@ TEST(DataWithNested, should_ignore_unknown_tag__WHEN__decode_struct_with_nested_
 
   unsigned char expected[] = { 0x01, 0x04, 0x00, 0xBE, 0xBA, 0xFE, 0xCA
                              , 0x09, 0x03, 0x00, 0x01, 0x02, 0x03       /*unknown tag 0x09*/
-                             , 0x02, 0x0E, 0x00 /*T and L of nested X */
+                             , 0x02, 0x0E, 0x00 /*T and L of nested X*/
                              , 0x01, 0x04, 0x00, 0x78, 0x56, 0x34, 0x12
                              , 0x11, 0x01, 0x00, 0x01                   /*unknown tag 0x011*/
                              , 0x02, 0x04, 0x00, 0x44, 0x33, 0x22, 0x11
                              , 0x12, 0x05, 0x00, 0x01, 0x02, 0x03, 0x04, 0x05 /*unknown tag*/
-                             , 0x03, 0x04, 0x00, 0xEF, 0xBE, 0xAD, 0xDE };
+                             , 0x03, 0x04, 0x00, 0xEF, 0xBE, 0xAD, 0xDE
+                             , 0x04, 0x01, 0x00, 0x45};
 
   __decode(xn, expected, sizeof(expected));
   
@@ -387,12 +417,10 @@ TEST(DataWithNested, should_ignore_unknown_tag__WHEN__decode_struct_with_nested_
   EXPECT_EQ(0x12345678, xn.x.a);
   EXPECT_EQ(0x11223344, xn.x.b);
   EXPECT_EQ(0xDEADBEEF, xn.b);
+  EXPECT_EQ(0x45, xn.c);
 }
 
-/*----------------------------------------------------------------------------*/
-
-
-/*------------------------------------------------------------------------------
+/*----------------------------------------------------------------------------
 TODO:
 - test `char arr[10]' field.
 - test `const int *' field.
@@ -402,3 +430,4 @@ TODO:
 - support varible length data.  data[0]
 - support string 
 ------------------------------------------------------------------------------*/
+
