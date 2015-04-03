@@ -111,7 +111,7 @@ void* __decode(Serializable& d, void* p, size_t total_len) {
 }
 
 /*----------------------------------------------------------------------------*/
-#define DEF_DATA_CLASS_BEGIN(_NAME)      \
+#define DECLARE_DATA_CLASS_BEGIN(_NAME)  \
 namespace __NS_##_NAME {                 \
 struct _NAME : Serializable {            \
   _NAME() {                              \
@@ -120,7 +120,7 @@ struct _NAME : Serializable {            \
 #define __INIT_FIELD_IN_CONSTRUCTOR(_TYPE, _FIELD_NAME, _TAG) _FIELD_NAME = _TYPE();
 
 #define __DECLARE_FIELD(_TYPE, _FIELD_NAME, _TAG) \
-  _TYPE _FIELD_NAME;                                   \
+  _TYPE _FIELD_NAME;                              \
   enum {__tag_##_FIELD_NAME = _TAG};
 
 #define __FIELD_ENCODE_SIZE(_TYPE, _FIELD_NAME, _TAG) \
@@ -134,45 +134,53 @@ struct _NAME : Serializable {            \
     , &Decoder<_TYPE>::decode }, 
 
 
-#define DEF_DATA_CLASS(_NAME)                      \
-DEF_DATA_CLASS_1( EXPAND_FIELDS_##_NAME            \
+#define DECLARE_DATA_CLASS(_NAME)                  \
+DECLARE_DATA_CLASS_1( EXPAND_FIELDS_##_NAME        \
                 , _NAME                            \
                 , __INIT_FIELD_IN_CONSTRUCTOR      \
                 , __DECLARE_FIELD                  \
-                , __FIELD_ENCODE_SIZE              \
-                , __DEFINE_FIELD_INFO); 
+                , __FIELD_ENCODE_SIZE);
 
-#define DEF_DATA_CLASS_1(EXPAND_FIELDS, _NAME, _M1, _M2, _M3, _M4) \
-DEF_DATA_CLASS_BEGIN(_NAME)                                        \
-  EXPAND_FIELDS(_M1/*__INIT_FIELD_IN_CONSTRUCTOR*/)                \
-  }                                                                \
-  EXPAND_FIELDS(_M2/*__DECLARE_FIELD*/)                            \
-  enum { encode_size = 0                                           \
-     EXPAND_FIELDS(_M3/*__FIELD_ENCODE_SIZE*/)                     \
-  };                                                               \
-  static const FieldInfo kFieldsInfos[];                           \
-}; /*class end*/                                                   \
-typedef _NAME DataType;                                            \
-const FieldInfo _NAME::kFieldsInfos[] = {                          \
-    EXPAND_FIELDS(_M4/*__DEFINE_FIELD_INFO*/)                      \
-    { 0, kTagInvalid }                                             \
-};                                                                 \
-}  /*namespace end*/                                               \
+#define DEFINE_DATA_CLASS(_NAME) DEFINE_DATA_CLASS_1(EXPAND_FIELDS_##_NAME, _NAME, __DEFINE_FIELD_INFO)
+#define DEFINE_DATA_CLASS_1(EXPAND_FIELDS, _NAME, _M1)  \
+namespace __NS_##_NAME {                                \
+  const FieldInfo _NAME::kFieldsInfos[] = {             \
+      EXPAND_FIELDS(_M1/*__DEFINE_FIELD_INFO*/)         \
+      { 0, kTagInvalid }                                \
+  };                                                    \
+}  /*namespace end*/
+  
+
+#define DECLARE_DATA_CLASS_1(EXPAND_FIELDS, _NAME, _M1, _M2, _M3) \
+DECLARE_DATA_CLASS_BEGIN(_NAME)                                   \
+  EXPAND_FIELDS(_M1/*__INIT_FIELD_IN_CONSTRUCTOR*/)               \
+  }                                                               \
+  EXPAND_FIELDS(_M2/*__DECLARE_FIELD*/)                           \
+  enum { encode_size = 0                                          \
+     EXPAND_FIELDS(_M3/*__FIELD_ENCODE_SIZE*/)                    \
+  };                                                              \
+  static const FieldInfo kFieldsInfos[];                          \
+}; /*class end*/                                                  \
+typedef _NAME DataType;                                           \
+}  /*namespace end*/                                              \
 using __NS_##_NAME::_NAME;
+
+#define DEF_DATA(_NAME)      \
+  DECLARE_DATA_CLASS(_NAME); \
+  DEFINE_DATA_CLASS(_NAME);
 
 /*----------------------------------------------------------------------------*/
 #define EXPAND_FIELDS_SingleFieldData(_)  \
   _(int, a, 1)
 
-DEF_DATA_CLASS(SingleFieldData);
+DEF_DATA(SingleFieldData);
 
 /*----------------------------------------------------------------------------*/
 #define EXPAND_FIELDS_DataX(_)  \
   _(int, a, 1)                  \
   _(int, b, 2)
 
-DEF_DATA_CLASS(DataX);
-
+DEF_DATA(DataX);
 
 /*----------------------------------------------------------------------------*/
 #define EXPAND_FIELDS_DataWithNested(_)  \
@@ -180,8 +188,7 @@ DEF_DATA_CLASS(DataX);
   _(DataX, x, 2)                         \
   _(int  , b, 3)
 
-DEF_DATA_CLASS(DataWithNested);
-
+DEF_DATA(DataWithNested);
 /*----------------------------------------------------------------------------*/
 //namespace _DataX {
 //  struct DataX : Serializable {
