@@ -8,13 +8,6 @@
 USING_MOCKCPP_NS;
 using namespace std;
 
-/*------------------------------------------------------------------------------
-- test `char arr[10]' field.
-- test `const int *' field.
-- too much duplicaate code
-- enum {__field_count = 2};
-  uint8_t fields_presence_[__field_count / 8 + 1];
-------------------------------------------------------------------------------*/
 template<typename T, class Enable = void>
 struct EncodeSizeGetter {
   enum {encode_size = sizeof(T)};
@@ -85,6 +78,62 @@ struct Decoder<T, typename boost::enable_if_c<T::encode_size>::type> {
   }
 };
 
+
+#define DEF_DATA_CLASS_BEGIN(_NAME)      \
+struct _NAME : Serializable {            \
+  _NAME() {                              \
+    fields_infos_ = &kFieldsInfos[0]; 
+
+#define __INIT_FIELD_IN_CONSTRUCTOR(_TYPE, _FIELD_NAME, _TAG, ...) \
+  _FIELD_NAME = _TYPE(); 
+
+#define __DECLARE_FIELD(_TYPE, _FIELD_NAME, _TAG, ...) \
+  _TYPE _FIELD_NAME; \
+  enum {__tag_##_FIELD_NAME = _TAG};
+
+#define __FIELD_ENCODE_SIZE(_TYPE, _FIELD_NAME, _TAG, ...) \
+  + sizeof(tag_t) + sizeof(len_t) + EncodeSizeGetter<_TYPE>::encode_size
+
+#define __DEFINE_FIELD_INFO(_TYPE, _FIELD_NAME, _TAG, _NAME) \
+    { EncodeSizeGetter<_TYPE>::encode_size, offsetof(_NAME, _FIELD_NAME), _TAG, &Encoder<_TYPE>::encode, &Decoder<_TYPE>::decode },
+
+#define DEF_DATA_CLASS(_NAME)\
+DATA_CLASS_1(EXPAND_FIELDS_##_NAME, _NAME, __INIT_FIELD_IN_CONSTRUCTOR, __DECLARE_FIELD, __FIELD_ENCODE_SIZE, __DEFINE_FIELD_INFO);
+
+#define DATA_CLASS_1(EXPAND_FIELDS, _NAME, _M1, _M2, _M3, _M4)    \
+DEF_DATA_CLASS_BEGIN(_NAME)                                       \
+  EXPAND_FIELDS(_M1/*__INIT_FIELD_IN_CONSTRUCTOR*/)               \
+  }                                                               \
+  EXPAND_FIELDS(_M2/*__DECLARE_FIELD*/)                           \
+  enum { encode_size = 0                                          \
+     EXPAND_FIELDS(_M3/*__FIELD_ENCODE_SIZE*/)                    \
+  };                                                              \
+  static const FieldInfo kFieldsInfos[];                          \
+}; /*class end*/                                                  \
+const FieldInfo _NAME::kFieldsInfos[] = {                         \
+    EXPAND_FIELDS(_M4/*__DEFINE_FIELD_INFO*/, _NAME)              \
+    { 0, kTagInvalid }                                            \
+};
+
+
+/*----------------------------------------------------------------------------*/
+#define EXPAND_FIELDS_DataX(_, ...)  \
+  _(int, a, 1 , __VA_ARGS__)         \
+  _(int, b, 2 , __VA_ARGS__)
+
+DEF_DATA_CLASS(DataX);
+
+
+/*----------------------------------------------------------------------------*/
+#define EXPAND_FIELDS_DataXN(_, ...)  \
+  _(int, a, 1 , __VA_ARGS__)          \
+  _(DataX, x, 2 , __VA_ARGS__)        \
+  _(int, b, 3 , __VA_ARGS__)
+
+DEF_DATA_CLASS(DataXN);
+
+
+/*----------------------------------------------------------------------------*/
 // struct DataX : Serializable {
 //   DataX() {
 //     fields_infos_ = &kFieldsInfos[0];      
@@ -106,51 +155,6 @@ struct Decoder<T, typename boost::enable_if_c<T::encode_size>::type> {
 //   , { EncodeSizeGetter<int>::encode_size, offsetof(DataX, b), __tag_b, &Encoder<int>::encode, &Decoder<int>::decode }
 //   , { 0, kTagInvalid }
 // };
-
-#define DEF_DATA_CLASS_BEGIN(_NAME)      \
-struct _NAME : Serializable {            \
-  _NAME() {                              \
-    fields_infos_ = &kFieldsInfos[0]; 
-
-#define __INIT_FIELD_IN_CONSTRUCTOR(_TYPE, _FIELD_NAME, _TAG, ...) \
-  _FIELD_NAME = _TYPE(); 
-
-#define __DECLARE_FIELD(_TYPE, _FIELD_NAME, _TAG, ...) \
-  _TYPE _FIELD_NAME; \
-  enum {__tag_##_FIELD_NAME = _TAG};
-
-#define __FIELD_ENCODE_SIZE(_TYPE, _FIELD_NAME, _TAG, ...) \
-  + sizeof(tag_t) + sizeof(len_t) + EncodeSizeGetter<_TYPE>::encode_size
-
-#define __DEFINE_FIELD_INFO(_TYPE, _FIELD_NAME, _TAG, _NAME) \
-    { EncodeSizeGetter<_TYPE>::encode_size, offsetof(_NAME, _FIELD_NAME), _TAG, &Encoder<_TYPE>::encode, &Decoder<_TYPE>::decode },
-
-#define DATA_CLASS_2(_NAME)\
-DATA_CLASS_1(EXPAND_FIELDS_##_NAME, _NAME, __INIT_FIELD_IN_CONSTRUCTOR, __DECLARE_FIELD, __FIELD_ENCODE_SIZE, __DEFINE_FIELD_INFO);
-
-#define DATA_CLASS_1(EXPAND_FIELDS, _NAME, _M1, _M2, _M3, _M4)    \
-DEF_DATA_CLASS_BEGIN(_NAME)                                       \
-  EXPAND_FIELDS(_M1/*__INIT_FIELD_IN_CONSTRUCTOR*/)               \
-  }                                                               \
-  EXPAND_FIELDS(_M2/*__DECLARE_FIELD*/)                           \
-  enum { encode_size = 0                                          \
-     EXPAND_FIELDS(_M3/*__FIELD_ENCODE_SIZE*/)                    \
-  };                                                              \
-  static const FieldInfo kFieldsInfos[];                          \
-}; /*class end*/                                                  \
-const FieldInfo _NAME::kFieldsInfos[] = {                         \
-    EXPAND_FIELDS(_M4/*__DEFINE_FIELD_INFO*/, _NAME)              \
-    { 0, kTagInvalid }                                            \
-};
-
-
-#define EXPAND_FIELDS_DataX(_, ...)  \
-  _(int, a, 1 , __VA_ARGS__)         \
-  _(int, b, 2 , __VA_ARGS__)
-
-DATA_CLASS_2(DataX);
-
-
 
 // //struct DataX : Serializable {
 // //  DataX() {
@@ -202,15 +206,6 @@ DATA_CLASS_2(DataX);
 //  ,{ EncodeSizeGetter<int>::encode_size   , offsetof(DataXN, b), __tag_b, &Encoder<int>::encode   , &Decoder<int>::decode}
 //  ,{ 0, 0, kTagInvalid, NULL }
 //  };
-
-
-#define EXPAND_FIELDS_DataXN(_, ...)  \
-  _(int, a, 1 , __VA_ARGS__)          \
-  _(DataX, x, 2 , __VA_ARGS__)        \
-  _(int, b, 3 , __VA_ARGS__)
-
-DATA_CLASS_2(DataXN);
-
 
 
 void* __encode(const Serializable& d, void* p) {
@@ -368,3 +363,11 @@ TEST(DataXN, should_ignore_unknown_tag__WHEN__decode_struct_with_nested_struct) 
   EXPECT_EQ(0xDEADBEEF, xn.b);
 }
 
+/*------------------------------------------------------------------------------
+TODO:
+- test `char arr[10]' field.
+- test `const int *' field.
+- too much duplicaate code
+- enum {__field_count = 2};
+  uint8_t fields_presence_[__field_count / 8 + 1];
+------------------------------------------------------------------------------*/
