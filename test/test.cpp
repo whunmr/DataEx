@@ -119,7 +119,6 @@ const FieldInfo _NAME::kFieldsInfos[] = {                         \
 
 DEF_DATA_CLASS(DataX);
 
-
 /*----------------------------------------------------------------------------*/
 #define EXPAND_FIELDS_DataXN(_, ...)  \
   _(int, a, 1 , __VA_ARGS__)          \
