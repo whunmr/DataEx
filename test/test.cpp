@@ -127,21 +127,21 @@ struct _NAME : Serializable {            \
   _NAME() {                              \
     fields_infos_ = &kFieldsInfos[0]; 
 
-#define __INIT_FIELD_IN_CONSTRUCTOR(_TYPE, _FIELD_NAME, _TAG) /*_FIELD_NAME = _TYPE();*/
+#define __INIT_FIELD_IN_CONSTRUCTOR(_TAG, _FIELD_NAME, ...) /*_FIELD_NAME = __VA_ARGS__();*/
 
-#define __DECLARE_FIELD(_TYPE, _FIELD_NAME, _TAG) \
-  _TYPE _FIELD_NAME;                              \
+#define __DECLARE_FIELD(_TAG, _FIELD_NAME, ...) \
+  __VA_ARGS__ _FIELD_NAME;                      \
   enum {__tag_##_FIELD_NAME = _TAG};
 
-#define __FIELD_ENCODE_SIZE(_TYPE, _FIELD_NAME, _TAG) \
-  + sizeof(tag_t) + sizeof(len_t) + EncodeSizeGetter<_TYPE>::encode_size
+#define __FIELD_ENCODE_SIZE(_TAG, _FIELD_NAME, ...) \
+  + sizeof(tag_t) + sizeof(len_t) + EncodeSizeGetter<__VA_ARGS__>::encode_size
 
-#define __DEFINE_FIELD_INFO(_TYPE, _FIELD_NAME, _TAG) \
-    { EncodeSizeGetter<_TYPE>::encode_size            \
-    , offsetof(DataType, _FIELD_NAME)                 \
-    , _TAG                                            \
-    , &Encoder<_TYPE>::encode                         \
-    , &Decoder<_TYPE>::decode }, 
+#define __DEFINE_FIELD_INFO(_TAG, _FIELD_NAME, ...) \
+    { EncodeSizeGetter<__VA_ARGS__>::encode_size    \
+    , offsetof(DataType, _FIELD_NAME)               \
+    , _TAG                                          \
+    , &Encoder<__VA_ARGS__>::encode                 \
+    , &Decoder<__VA_ARGS__>::decode }, 
 
 
 #define DECLARE_DATA_CLASS(_NAME)                  \
@@ -181,26 +181,24 @@ using __NS_##_NAME::_NAME;
 
 /*----------------------------------------------------------------------------*/
 #define EXPAND_FIELDS_SingleFieldData(_)  \
-  _(int, a, 1)
+  _(1, a, int)
 
 DEF_DATA(SingleFieldData);
 
 /*----------------------------------------------------------------------------*/
 #define EXPAND_FIELDS_DataX(_)  \
-  _(int, a, 1)                  \
-  _(int, b, 2)
+  _(1, a, int)                  \
+  _(2, b, int)
 
 DEF_DATA(DataX);
 
 /*----------------------------------------------------------------------------*/
-typedef boost::array<char, 3> DataWithNested_char_3;
-
-#define EXPAND_FIELDS_DataWithNested(_) \
-  _(int  , a, 1)                        \
-  _(DataX, x, 2)                        \
-  _(int  , b, 3)                        \
-  _(char , c, 4)                        \
-  _(DataWithNested_char_3, d, 5)
+#define EXPAND_FIELDS_DataWithNested(_)  \
+  _(1,  a, int  )                        \
+  _(2,  x, DataX)                        \
+  _(3,  b, int  )                        \
+  _(4,  c, char )                        \
+  _(5,  d, boost::array<char, 3>)
 
 DEF_DATA(DataWithNested);
 
