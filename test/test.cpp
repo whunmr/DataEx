@@ -23,10 +23,6 @@ typedef uint16_t len_t;
 typedef uint8_t  tag_t;
 static const tag_t kTagInvalid = 0;
 
-#define ENCODE_SIZE_T (sizeof(tag_t))
-#define ENCODE_SIZE_TL (ENCODE_SIZE_T + sizeof(len_t))
-#define ENCODE_SIZE_TLV(type) (ENCODE_SIZE_TL + EncodeSizeGetter<type>::encode_size)
-
 /*----------------------------------------------------------------------------*/
 typedef void (*EncodeFunc)(const void* instance, size_t field_offset, void*& p);
 typedef void (*DecodeFunc)(void* instance, size_t field_offset, void*& p, size_t len);
@@ -259,8 +255,12 @@ void* __decode(Serializable& d, void* p, size_t total_len) {
         }
         return ::testing::AssertionSuccess();
     }
-/*----------------------------------------------------------------------------*/
 
+    #define ENCODE_SIZE_T (sizeof(tag_t))
+    #define ENCODE_SIZE_TL (ENCODE_SIZE_T + sizeof(len_t))
+    #define ENCODE_SIZE_TLV(type) (ENCODE_SIZE_TL + EncodeSizeGetter<type>::encode_size)
+
+/*----------------------------------------------------------------------------*/
 TEST(DataX, size_of_struct__should_be_total_of__TLVs) {
   EXPECT_EQ(ENCODE_SIZE_TLV(int)/*a*/+ ENCODE_SIZE_TLV(int)/*b*/, DataX::encode_size);
 }
