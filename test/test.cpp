@@ -59,15 +59,6 @@ struct Encoder<T, typename boost::enable_if_c<T::encode_size>::type> {
   }
 };
 
-//template<typename T, size_t N>
-template<>
-struct Encoder<char[10], void /*, typename boost::enable_if_c<T::encode_size>::type*/> {
-  static void encode(const void* instance, size_t field_offset, void*& p) {
-    //Serializable& nested = *(Serializable*)( ((uint8_t*)instance) + field_offset );
-    //p = __encode(nested, p);
-  }
-};
-
 template<typename T, class Enable = void>
 struct Decoder {
   static void decode(void* instance, size_t field_offset, void*& p, size_t len) {
@@ -273,7 +264,7 @@ DEF_DATA(DataWithNested);
 
     #define ENCODE_SIZE_T (sizeof(tag_t))
     #define ENCODE_SIZE_TL (ENCODE_SIZE_T + sizeof(len_t))
-    #define ENCODE_SIZE_TLV(type) (ENCODE_SIZE_TL + EncodeSizeGetter<type>::encode_size)
+    #define ENCODE_SIZE_TLV(...) (ENCODE_SIZE_TL + EncodeSizeGetter<__VA_ARGS__>::encode_size)
 
 /*----------------------------------------------------------------------------*/
 TEST(SingleFieldData, size_of_struct__should_be_total_of__TLVs) {
@@ -289,7 +280,7 @@ TEST(DataWithNested, size_of_struct_with_nested_struct) {
                   + ENCODE_SIZE_TL /*TL of nested X*/ + DataX::encode_size /*encoded X*/
                   + ENCODE_SIZE_TLV(int)  /*b*/
                   + ENCODE_SIZE_TLV(char) /*c*/
-                  + ENCODE_SIZE_TLV(DataWithNested_char_3)  /*d*/;
+                  + ENCODE_SIZE_TLV(boost::array<char, 3>)  /*d*/;
   EXPECT_EQ(expected, DataWithNested::encode_size);
 }
 
@@ -420,9 +411,6 @@ TEST(DataWithNested, should_ignore_unknown_tag__WHEN__decode_struct_with_nested_
 
 /*----------------------------------------------------------------------------
 TODO:
-- test `char arr[10]' field.
-- test `const int *' field.
-- too much duplicaate code
 - enum {__field_count = 2};
   uint8_t fields_presence_[__field_count / 8 + 1];
 - support varible length data.  data[0]
