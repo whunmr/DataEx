@@ -1,0 +1,6 @@
+GPATH
+GRTAGS
+GTAGS
+main
+test/main.o
+test/test.o
