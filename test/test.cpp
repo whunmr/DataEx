@@ -9,16 +9,6 @@
 USING_MOCKCPP_NS;
 using namespace std;
 
-template<typename T, class Enable = void>
-struct EncodeSizeGetter {
-  enum {encode_size = sizeof(T)};
-};
-
-template<typename T>
-struct EncodeSizeGetter<T, typename boost::enable_if_c<T::encode_size>::type> {
-  enum {encode_size = T::encode_size};
-};
-
 /*----------------------------------------------------------------------------*/
 typedef uint16_t len_t;
 typedef uint8_t  tag_t;
@@ -40,6 +30,19 @@ struct Serializable {
   const FieldInfo *fields_infos_;
 };
 
+template<typename T, class Enable = void>
+struct EncodeSizeGetter {
+  enum {encode_size = sizeof(T)};
+};
+
+template<typename T>
+struct EncodeSizeGetter<T, typename boost::enable_if_c<
+                             boost::is_base_of<Serializable, T>::value
+                           >::type> {
+  enum {encode_size = T::encode_size};
+};
+
+/*----------------------------------------------------------------------------*/
 void* __encode(const Serializable& d, void* p);
 void* __decode(Serializable& d, void* p, size_t total_len);
 
@@ -52,7 +55,8 @@ struct Encoder {
 };
 
 template<typename T>
-struct Encoder<T, typename boost::enable_if_c<T::encode_size>::type> {
+struct Encoder<T, typename boost::enable_if_c<
+                    boost::is_base_of<Serializable, T>::value>::type> {
   static void encode(const void* instance, size_t field_offset, void*& p) {
     Serializable& nested = *(Serializable*)( ((uint8_t*)instance) + field_offset );
     p = __encode(nested, p);
@@ -68,7 +72,8 @@ struct Decoder {
 };
 
 template<typename T>
-struct Decoder<T, typename boost::enable_if_c<T::encode_size>::type> {
+struct Decoder<T, typename boost::enable_if_c<
+                    boost::is_base_of<Serializable, T>::value>::type> {
   static void decode(void* instance, size_t field_offset, void*& p, size_t len) {
     Serializable& nested = *(Serializable*)( ((uint8_t*)instance) + field_offset );
     p = __decode(nested, p, len);
