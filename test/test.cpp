@@ -1,6 +1,7 @@
 #include <stdint.h>
 #include <cstring>
 #include <iostream>
+#include <string>
 #include <gtest/gtest.h>
 #include <mockcpp/mockcpp.hpp>
 #include <boost/utility/enable_if.hpp>
@@ -32,14 +33,18 @@ struct Serializable {
 
 template<typename T, class Enable = void>
 struct EncodeSizeGetter {
-  enum {encode_size = sizeof(T)};
+  enum {encode_size = sizeof(T)}; //TODO: delete
+  static size_t size(const T& t) {
+    return sizeof(T);
+  }
 };
 
 template<typename T>
-struct EncodeSizeGetter<T, typename boost::enable_if_c<
-                             boost::is_base_of<Serializable, T>::value
-                           >::type> {
+struct EncodeSizeGetter<T, typename boost::enable_if_c<boost::is_base_of<Serializable, T>::value>::type> {
   enum {encode_size = T::encode_size};
+  static size_t size(const T& t) {
+    return t.size();
+  }
 };
 
 /*----------------------------------------------------------------------------*/
@@ -55,8 +60,7 @@ struct Encoder {
 };
 
 template<typename T>
-struct Encoder<T, typename boost::enable_if_c<
-                    boost::is_base_of<Serializable, T>::value>::type> {
+struct Encoder<T, typename boost::enable_if_c<boost::is_base_of<Serializable, T>::value>::type> {
   static void encode(const void* instance, size_t field_offset, void*& p) {
     Serializable& nested = *(Serializable*)( ((uint8_t*)instance) + field_offset );
     p = __encode(nested, p);
@@ -72,14 +76,14 @@ struct Decoder {
 };
 
 template<typename T>
-struct Decoder<T, typename boost::enable_if_c<
-                    boost::is_base_of<Serializable, T>::value>::type> {
+struct Decoder<T, typename boost::enable_if_c<boost::is_base_of<Serializable, T>::value>::type> {
   static void decode(void* instance, size_t field_offset, void*& p, size_t len) {
     Serializable& nested = *(Serializable*)( ((uint8_t*)instance) + field_offset );
     p = __decode(nested, p, len);
   }
 };
 
+/*----------------------------------------------------------------------------*/
 void* __encode(const Serializable& d, void* p) {
   for (const FieldInfo* fi = &d.fields_infos_[0]; fi->tag_ != kTagInvalid; ++fi) {
     *((tag_t*)p) = fi->tag_;
@@ -182,6 +186,12 @@ using __NS_##_NAME::_NAME;
 DEF_DATA(SingleFieldData);
 
 /*----------------------------------------------------------------------------*/
+#define EXPAND_FIELDS_SingleStringData(_)  \
+  _(1, a, string)
+
+DEF_DATA(SingleStringData);
+
+/*----------------------------------------------------------------------------*/
 #define EXPAND_FIELDS_DataX(_)  \
   _(1, a, int)                  \
   _(2, b, int)
@@ -276,6 +286,19 @@ TEST(SingleFieldData, size_of_struct__should_be_total_of__TLVs) {
   EXPECT_EQ(ENCODE_SIZE_TLV(int)/*a*/, SingleFieldData::encode_size);
 }
 
+TEST(SingleStringData, should_able_to_encode__string_field__in_TLV) {
+  SingleStringData ssd;
+  ssd.a = "abcdef";
+  //TOOD:
+  //EXPECT_EQ(ENCODE_SIZE_TLV(int)/*a*/, SingleFieldData::encode_size);
+}
+
+TEST(xxx, xxx) {
+   string a = "abc";
+
+   EXPECT_EQ(ENCODE_SIZE_TL + a.size(), EncodeSizeGetter<string>::size(a));
+}
+
 TEST(DataX, size_of_struct__should_be_total_of__TLVs) {
   EXPECT_EQ(ENCODE_SIZE_TLV(int)/*a*/+ ENCODE_SIZE_TLV(int)/*b*/, DataX::encode_size);
 }
@@ -318,9 +341,7 @@ TEST(DataWithNested, should_able_to_encode_struct_with_nested_struct) {
   xn.x.b = 0x11223344;
   xn.b = 0xDEADBEEF;
   xn.c = 0x45;
-  xn.d[0] = 'X';
-  xn.d[1] = 'Y';
-  xn.d[2] = 'Z';
+  memcpy(xn.d.c_array(), "XYZ", strlen("XYZ"));
 
   __encode(xn, g_buf);
 
@@ -330,7 +351,7 @@ TEST(DataWithNested, should_able_to_encode_struct_with_nested_struct) {
                              , 0x02, 0x04, 0x00, 0x44, 0x33, 0x22, 0x11
                              , 0x03, 0x04, 0x00, 0xEF, 0xBE, 0xAD, 0xDE
                              , 0x04, 0x01, 0x00, 0x45
-                             , 0x05, 0x03, 0x00, 'X', 'Y', 'Z'};
+                             , 0x05, 0x03, 0x00, 'X', 'Y', 'Z' };
 
   EXPECT_TRUE(ArraysMatch(expected, g_buf));
 }
@@ -418,7 +439,7 @@ TEST(DataWithNested, should_ignore_unknown_tag__WHEN__decode_struct_with_nested_
 TODO:
 - enum {__field_count = 2};
   uint8_t fields_presence_[__field_count / 8 + 1];
+- support string
 - support varible length data.  data[0]
-- support string 
 ------------------------------------------------------------------------------*/
 
