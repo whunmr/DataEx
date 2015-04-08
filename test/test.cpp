@@ -22,7 +22,6 @@ typedef size_t (*GetEncodeSizeFunc)(const void* t);
 
 struct FieldInfo {
   GetEncodeSizeFunc field_encoded_size_func_;
-  //size_t   field_encoded_size_;
   uint16_t offset_;
   tag_t    tag_;
   EncodeFunc encode_func_;
@@ -35,7 +34,6 @@ struct Serializable {
 
 template<typename T, class Enable = void>
 struct EncodeSizeGetter {
-//  enum {encode_size = sizeof(T)}; //TODO: delete
   static size_t size(const void* t) {
     return sizeof(T);
   }
@@ -43,10 +41,8 @@ struct EncodeSizeGetter {
 
 template<typename T>
 struct EncodeSizeGetter<T, typename boost::enable_if_c<boost::is_base_of<Serializable, T>::value>::type> {
-  //  enum {encode_size = T::encode_size};
   static size_t size(const void* t) {
     return T::size(t);
-    //return ((T*)t)->size(t);
   }
 };
 
@@ -101,7 +97,6 @@ void* __encode(const Serializable& d, void* p) {
 
     void* value = (void*)(((uint8_t*)&d)+fi->offset_);
     *((len_t*)p) = fi->field_encoded_size_func_(value);
-    // *((len_t*)p) = fi->field_encoded_size_;
     p = ((len_t*)p)+1;
 
     (*fi->encode_func_)(&d, fi->offset_, p);
@@ -145,10 +140,7 @@ struct _NAME : Serializable {            \
   __VA_ARGS__ _FIELD_NAME;                      \
   enum {__tag_##_FIELD_NAME = _TAG};
 
-
-//#define __FIELD_ENCODE_SIZE(_TAG, _FIELD_NAME, ...) \
-//  + sizeof(tag_t) + sizeof(len_t) + EncodeSizeGetter<__VA_ARGS__>::encode_size
-#define __FIELD_ENCODE_SIZE(_TAG, _FIELD_NAME, ...) \
+#define __FIELD_ENCODE_SIZE(_TAG, _FIELD_NAME, ...)  \
   + sizeof(tag_t) + sizeof(len_t) + EncodeSizeGetter<__VA_ARGS__>::size(&(instance->_FIELD_NAME))
 
 #define __DEFINE_FIELD_INFO(_TAG, _FIELD_NAME, ...) \
@@ -180,7 +172,6 @@ DECLARE_DATA_CLASS_BEGIN(_NAME)                                   \
   EXPAND_FIELDS(_M1/*__INIT_FIELD_IN_CONSTRUCTOR*/)               \
   }                                                               \
   EXPAND_FIELDS(_M2/*__DECLARE_FIELD*/)                           \
-  /*enum { encode_size = 0*/                                      \
   static size_t size(const void* p) {                             \
      const _NAME* instance = (const _NAME*)p;                     \
      return 0 EXPAND_FIELDS(_M3/*__FIELD_ENCODE_SIZE*/);          \
@@ -295,18 +286,21 @@ DEF_DATA(DataWithNested);
 
     #define ENCODE_SIZE_T (sizeof(tag_t))
     #define ENCODE_SIZE_TL (ENCODE_SIZE_T + sizeof(len_t))
-    #define ENCODE_SIZE_TLV(...) (ENCODE_SIZE_TL + EncodeSizeGetter<__VA_ARGS__>::encode_size)
+    #define ENCODE_SIZE_TLV(value, ...) (ENCODE_SIZE_TL + EncodeSizeGetter<__VA_ARGS__>::size(&value))
 
 /*----------------------------------------------------------------------------*/
 TEST(SingleFieldData, size_of_struct__should_be_total_of__TLVs) {
-  // EXPECT_EQ(ENCODE_SIZE_TLV(int)/*a*/, SingleFieldData::encode_size);
+  SingleFieldData sfd;
+  int i;
+
+  EXPECT_EQ(ENCODE_SIZE_TLV(i, int), SingleFieldData::size(&sfd));
 }
 
 TEST(SingleStringData, should_able_to_encode__string_field__in_TLV) {
   SingleStringData ssd;
   ssd.a = "abcdef";
-  //TOOD:
-  //EXPECT_EQ(ENCODE_SIZE_TLV(int)/*a*/, SingleFieldData::encode_size);
+
+  EXPECT_EQ(ENCODE_SIZE_TLV(ssd.a, string), SingleStringData::size(&ssd));
 }
 
 TEST(xxx, xxx) {
@@ -315,16 +309,24 @@ TEST(xxx, xxx) {
 }
 
 TEST(DataX, size_of_struct__should_be_total_of__TLVs) {
-  // EXPECT_EQ(ENCODE_SIZE_TLV(int)/*a*/+ ENCODE_SIZE_TLV(int)/*b*/, DataX::encode_size);
+  DataX dx;
+  int i;
+  EXPECT_EQ(ENCODE_SIZE_TLV(i, int)/*a*/ + ENCODE_SIZE_TLV(i, int)/*b*/, DataX::size(&dx));
 }
 
 TEST(DataWithNested, size_of_struct_with_nested_struct) {
-  //  size_t expected = ENCODE_SIZE_TLV(int) /*a*/
-  //                  + ENCODE_SIZE_TL /*TL of nested X*/ + DataX::encode_size /*encoded X*/
-  //                  + ENCODE_SIZE_TLV(int)  /*b*/
-  //                  + ENCODE_SIZE_TLV(char) /*c*/
-  //                  + ENCODE_SIZE_TLV(boost::array<char, 3>)  /*d*/;
-  //  EXPECT_EQ(expected, DataWithNested::encode_size);
+  DataWithNested dwn;
+  DataX dx;
+  int i;
+  char c;
+  boost::array<char, 3> a3;
+  size_t expected = ENCODE_SIZE_TLV(i, int) /*a*/
+                  + ENCODE_SIZE_TL /*TL of nested X*/ + DataX::size(&dx) /*encoded X*/
+                  + ENCODE_SIZE_TLV(i, int)  /*b*/
+                  + ENCODE_SIZE_TLV(c, char) /*c*/
+                  + ENCODE_SIZE_TLV(a3, boost::array<char, 3>)/*d*/;
+  
+  EXPECT_EQ(expected, DataWithNested::size(&dwn));
 }
 
 /*----------------------------------------------------------------------------*/
@@ -454,7 +456,6 @@ TEST(DataWithNested, should_ignore_unknown_tag__WHEN__decode_struct_with_nested_
 TODO:
 - enum {__field_count = 2};
   uint8_t fields_presence_[__field_count / 8 + 1];
-- support string
 - support varible length data.  data[0]
 ------------------------------------------------------------------------------*/
 
