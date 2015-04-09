@@ -100,6 +100,14 @@ struct Decoder<T, typename boost::enable_if_c<boost::is_base_of<Serializable, T>
   }
 };
 
+template<typename T>
+struct Decoder<T, typename boost::enable_if_c<boost::is_same<string, T>::value>::type> {
+  static void decode(void* instance, size_t field_offset, void*& p, size_t len) {
+    string& str = *(string*)( ((uint8_t*)instance) + field_offset );
+    str = string((const char*)p);
+  }
+};
+
 /*----------------------------------------------------------------------------*/
 void* __encode(const Serializable& d, void* p) {
   for (const FieldInfo* fi = &d.fields_infos_[0]; fi->tag_ != kTagInvalid; ++fi) {
@@ -390,7 +398,7 @@ TEST(DataWithNested, should_able_to_encode_struct_with_nested_struct) {
                              , 0x03, 0x04, 0x00, 0xEF, 0xBE, 0xAD, 0xDE
                              , 0x04, 0x01, 0x00, 0x45
                              , 0x05, 0x03, 0x00, 'X', 'Y', 'Z'
-                             , 0x06, 0x06, 0x00, 'h', 'e', 'l', 'l', 'o'};
+                             , 0x06, 0x06, 0x00, 'h', 'e', 'l', 'l', 'o', '\0'};
 
   EXPECT_TRUE(ArraysMatch(expected, g_buf));
 }
@@ -403,6 +411,14 @@ TEST(SingleFieldData, should_able_to_decode_SingleFieldData) {
   __decode(x, expected, sizeof(expected));
 
   EXPECT_EQ(0x12345678, x.a);
+}
+
+TEST(SingleStringData, should_able_to_dncode_data_with_string_field) {
+  SingleStringData ssd;
+  unsigned char expected[] = { 0x01, 0x04, 0x00, 'a', 'b', 'c', '\0'};
+  
+  __decode(ssd, expected, sizeof(expected));
+  EXPECT_STREQ(ssd.a.c_str(), "abc");
 }
 
 TEST(DataX, should_able_to_decode_normal_struct) {
@@ -425,7 +441,8 @@ TEST(DataWithNested, should_able_to_decode_struct_with_nested_struct) {
                              , 0x02, 0x04, 0x00, 0x44, 0x33, 0x22, 0x11
                              , 0x03, 0x04, 0x00, 0xEF, 0xBE, 0xAD, 0xDE
                              , 0x04, 0x01, 0x00, 0x45
-                             , 0x05, 0x03, 0x00, 'X', 'Y', 'Z'};
+                             , 0x05, 0x03, 0x00, 'X', 'Y', 'Z'
+                             , 0x06, 0x06, 0x00, 'h', 'e', 'l', 'l', 'o', '\0'};
 
   __decode(xn, expected, sizeof(expected));
   
@@ -437,6 +454,7 @@ TEST(DataWithNested, should_able_to_decode_struct_with_nested_struct) {
   EXPECT_EQ('X',       xn.d[0]);
   EXPECT_EQ('Y',       xn.d[1]);
   EXPECT_EQ('Z',       xn.d[2]);
+  EXPECT_STREQ(xn.e.c_str(), "hello");
 }
 
 /*----------------------------------------------------------------------------*/
