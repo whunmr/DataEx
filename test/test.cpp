@@ -9,7 +9,6 @@
 #include <boost/array.hpp>
 USING_MOCKCPP_NS;
 using namespace std;
-
 /*----------------------------------------------------------------------------*/
 typedef uint16_t len_t;
 typedef uint8_t  tag_t;
@@ -49,7 +48,7 @@ struct EncodeSizeGetter<T, typename boost::enable_if_c<boost::is_base_of<Seriali
 template<typename T>
 struct EncodeSizeGetter<T, typename boost::enable_if_c<boost::is_same<string, T>::value>::type > {
   static size_t size(const void* t) {
-    return ((string*)t)->size();
+    return ((string*)t)->size() + 1 /*1 for the ending zero*/;
   }
 };
 
@@ -70,6 +69,18 @@ struct Encoder<T, typename boost::enable_if_c<boost::is_base_of<Serializable, T>
   static void encode(const void* instance, size_t field_offset, void*& p) {
     Serializable& nested = *(Serializable*)( ((uint8_t*)instance) + field_offset );
     p = __encode(nested, p);
+  }
+};
+
+template<typename T>
+struct Encoder<T, typename boost::enable_if_c<boost::is_same<string, T>::value>::type> {
+  static void encode(const void* instance, size_t field_offset, void*& p) {
+    string& str = *(string*)( ((uint8_t*)instance) + field_offset );
+    memcpy(p, str.c_str(), str.size());
+    p = ((uint8_t*)p) + str.size();
+    
+    *((char*)p) = 0;
+    p = ((uint8_t*)p) + 1;
   }
 };
 
@@ -298,14 +309,9 @@ TEST(SingleFieldData, size_of_struct__should_be_total_of__TLVs) {
 
 TEST(SingleStringData, should_able_to_encode__string_field__in_TLV) {
   SingleStringData ssd;
-  ssd.a = "abcdef";
+  ssd.a = "abc";
 
   EXPECT_EQ(ENCODE_SIZE_TLV(ssd.a, string), SingleStringData::size(&ssd));
-}
-
-TEST(xxx, xxx) {
-   string a = "abc";
-   EXPECT_EQ(a.size(), EncodeSizeGetter<string>::size(&a));
 }
 
 TEST(DataX, size_of_struct__should_be_total_of__TLVs) {
@@ -333,10 +339,20 @@ TEST(DataWithNested, size_of_struct_with_nested_struct) {
 TEST(SingleFieldData, should_able_to_encode_SingleFieldData) {
   SingleFieldData x;
   x.a = 0x12345678;
+
   __encode(x, g_buf);
 
   unsigned char expected[] = { 0x01, 0x04, 0x00, 0x78, 0x56, 0x34, 0x12};
+  EXPECT_TRUE(ArraysMatch(expected, g_buf));
+}
 
+TEST(SingleStringData, should_able_to_encode_data_with_string_field) {
+  SingleStringData ssd;
+  ssd.a = "abc";
+
+  __encode(ssd, g_buf);
+
+  unsigned char expected[] = { 0x01, 0x04, 0x00, 'a', 'b', 'c', '\0'};
   EXPECT_TRUE(ArraysMatch(expected, g_buf));
 }
 
