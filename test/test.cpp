@@ -430,6 +430,20 @@ TEST(SingleStringData, should_able_to_dncode_data_with_string_field) {
   EXPECT_STREQ(ssd.a.c_str(), "abc");
 }
 
+TEST(SingleStringData, should_able_to_decode__bytes_contains_zero__with_string_field) {
+  //TODO:
+  SingleStringData ssd;
+  char data_with_zero[] = {'a', '\0', 'b', '\0', 'c', '\0'};
+  ssd.a = string(data_with_zero, sizeof(data_with_zero));
+
+  __encode(ssd, g_buf);
+
+  unsigned char expected[] = { 0x01, 0x06, 0x00, 'a', '\0', 'b', '\0', 'c', '\0'};
+  EXPECT_TRUE(ArraysMatch(expected, g_buf));
+}
+
+
+
 TEST(DataX, should_able_to_decode_normal_struct) {
   DataX x;
   unsigned char expected[] = { 0x01, 0x04, 0x00, 0x78, 0x56, 0x34, 0x12
