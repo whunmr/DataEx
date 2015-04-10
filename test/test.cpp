@@ -166,7 +166,6 @@ struct _NAME : Serializable {            \
     , &Encoder<__VA_ARGS__>::encode                 \
     , &Decoder<__VA_ARGS__>::decode }, 
 
-
 #define DECLARE_DATA_CLASS(_NAME)                  \
 DECLARE_DATA_CLASS_1( EXPAND_FIELDS_##_NAME        \
                 , _NAME                            \
@@ -198,9 +197,7 @@ typedef _NAME DataType;                                           \
 }  /*namespace end*/                                              \
 using __NS_##_NAME::_NAME;
 
-#define DEF_DATA(_NAME)      \
-  DECLARE_DATA_CLASS(_NAME); \
-  DEFINE_DATA_CLASS(_NAME);
+#define DEF_DATA(_NAME) DECLARE_DATA_CLASS(_NAME); DEFINE_DATA_CLASS(_NAME);
 
 /*----------------------------------------------------------------------------*/
 #define EXPAND_FIELDS_SingleFieldData(_)  \
@@ -233,64 +230,11 @@ DEF_DATA(DataX);
 DEF_DATA(DataWithNested);
 
 /*----------------------------------------------------------------------------*/
-//namespace _DataX {
-//  struct DataX : Serializable {
-//    DataX() {
-//      fields_infos_ = &kFieldsInfos[0];      
-//      a = int();
-//      b = int();
-//    }
-//    
-//    int a; enum {__tag_a = 1};
-//    int b; enum {__tag_b = 2};
-//    enum {__field_count = 2};
-//    uint8_t fields_presence_[__field_count / 8 + 1];
-//    enum { encode_size = 0 + sizeof(tag_t) + sizeof(len_t) + EncodeSizeGetter<int>::encode_size
-//                           + sizeof(tag_t) + sizeof(len_t) + EncodeSizeGetter<int>::encode_size };
-//    static const FieldInfo kFieldsInfos[];
-//  };
-//  
-//  typedef DataX DataType;
-//  
-//  const FieldInfo DataX::kFieldsInfos[] = {
-//      { EncodeSizeGetter<int>::encode_size, offsetof(DataType, a), __tag_a, &Encoder<int>::encode, &Decoder<int>::decode }
-//    , { EncodeSizeGetter<int>::encode_size, offsetof(DataType, b), __tag_b, &Encoder<int>::encode, &Decoder<int>::decode }
-//    , { 0, kTagInvalid }
-//  };
-//}
-//using _DataX::DataX;
+    char __buf[32 * 1024]; char* g_buf = &__buf[0];
 
-/*----------------------------------------------------------------------------*/
-//  struct DataWithNested : Serializable {
-//    DataWithNested() {
-//      fields_infos_ = &kFieldsInfos[0];      
-//      a = int();
-//      x = DataX();
-//      b = int();    
-//    }
-//  
-//    int   a; enum {__tag_a = 1};
-//    DataX x; enum {__tag_x = 2};
-//    int   b; enum {__tag_b = 3};
-//    enum { encode_size = 0 + ENCODE_SIZE_TLV(int) + ENCODE_SIZE_TLV(DataX) + ENCODE_SIZE_TLV(int) };
-//  
-//    static const FieldInfo kFieldsInfos[];
-//  };
-//  
-//  const FieldInfo DataWithNested::kFieldsInfos[] = {
-//   { EncodeSizeGetter<int>::encode_size   , offsetof(DataWithNested, a), __tag_a, &Encoder<int>::encode   , &Decoder<int>::decode}
-//  ,{ EncodeSizeGetter<DataX>::encode_size , offsetof(DataWithNested, x), __tag_x, &Encoder<DataX>::encode , &Decoder<DataX>::decode}
-//  ,{ EncodeSizeGetter<int>::encode_size   , offsetof(DataWithNested, b), __tag_b, &Encoder<int>::encode   , &Decoder<int>::decode}
-//  ,{ 0, 0, kTagInvalid, NULL }
-//  };
-
-
-/*----------------------------------------------------------------------------*/
-    unsigned char g_buf[32 * 1024];
-
-    template<typename T, size_t size, size_t n>
+    template<typename T, size_t size>
     ::testing::AssertionResult ArraysMatch(const T (&expected)[size],
-                                           const T (&actual)[n]){
+                                           const char* actual){
         for (size_t i(0); i < size; ++i){
             if (expected[i] != actual[i]){
                 return ::testing::AssertionFailure() << "array[" << i
@@ -352,7 +296,7 @@ TEST(SingleFieldData, should_able_to_encode_SingleFieldData) {
 
   __encode(x, g_buf);
 
-  unsigned char expected[] = { 0x01, 0x04, 0x00, 0x78, 0x56, 0x34, 0x12};
+  char expected[] = { 0x01, 0x04, 0x00, 0x78, 0x56, 0x34, 0x12};
   EXPECT_TRUE(ArraysMatch(expected, g_buf));
 }
 
@@ -362,7 +306,7 @@ TEST(SingleStringData, should_able_to_encode_data_with_string_field) {
 
   __encode(ssd, g_buf);
 
-  unsigned char expected[] = { 0x01, 0x03, 0x00, 'a', 'b', 'c'};
+  char expected[] = { 0x01, 0x03, 0x00, 'a', 'b', 'c'};
   EXPECT_TRUE(ArraysMatch(expected, g_buf));
 }
 
@@ -373,7 +317,7 @@ TEST(SingleStringData, should_able_to_encode__bytes_contains_zero__with_string_f
 
   __encode(ssd, g_buf);
 
-  unsigned char expected[] = { 0x01, 0x06, 0x00, 'a', '\0', 'b', '\0', 'c', '\0'};
+  char expected[] = { 0x01, 0x06, 0x00, 'a', '\0', 'b', '\0', 'c', '\0'};
   EXPECT_TRUE(ArraysMatch(expected, g_buf));
 }
 
@@ -383,7 +327,7 @@ TEST(DataX, should_able_to_encode_normal_struct) {
   x.b = 0x11223344;
   __encode(x, g_buf);
 
-  unsigned char expected[] = { 0x01, 0x04, 0x00, 0x78, 0x56, 0x34, 0x12
+  char expected[] = { 0x01, 0x04, 0x00, 0x78, 0x56, 0x34, 0x12
                              , 0x02, 0x04, 0x00, 0x44, 0x33, 0x22, 0x11};
   EXPECT_TRUE(ArraysMatch(expected, g_buf));
 }
@@ -400,7 +344,7 @@ TEST(DataWithNested, should_able_to_encode_struct_with_nested_struct) {
 
   __encode(xn, g_buf);
 
-  unsigned char expected[] = { 0x01, 0x04, 0x00, 0xBE, 0xBA, 0xFE, 0xCA
+  char expected[] = { 0x01, 0x04, 0x00, 0xBE, 0xBA, 0xFE, 0xCA
                              , 0x02, 0x0E, 0x00 /*T and L of nested X*/
                              , 0x01, 0x04, 0x00, 0x78, 0x56, 0x34, 0x12
                              , 0x02, 0x04, 0x00, 0x44, 0x33, 0x22, 0x11
@@ -415,7 +359,7 @@ TEST(DataWithNested, should_able_to_encode_struct_with_nested_struct) {
 /*----------------------------------------------------------------------------*/
 TEST(SingleFieldData, should_able_to_decode_SingleFieldData) {
   SingleFieldData x;
-  unsigned char expected[] = { 0x01, 0x04, 0x00, 0x78, 0x56, 0x34, 0x12};
+  char expected[] = { 0x01, 0x04, 0x00, 0x78, 0x56, 0x34, 0x12};
 
   __decode(x, expected, sizeof(expected));
 
@@ -424,29 +368,24 @@ TEST(SingleFieldData, should_able_to_decode_SingleFieldData) {
 
 TEST(SingleStringData, should_able_to_dncode_data_with_string_field) {
   SingleStringData ssd;
-  unsigned char expected[] = { 0x01, 0x04, 0x00, 'a', 'b', 'c', '\0'};
+  char expected[] = { 0x01, 0x04, 0x00, 'a', 'b', 'c', '\0'};
   
   __decode(ssd, expected, sizeof(expected));
   EXPECT_STREQ(ssd.a.c_str(), "abc");
 }
 
 TEST(SingleStringData, should_able_to_decode__bytes_contains_zero__with_string_field) {
-  //TODO:
   SingleStringData ssd;
+  char expected[] = { 0x01, 0x06, 0x00, 'a', '\0', 'b', '\0', 'c', '\0'};
   char data_with_zero[] = {'a', '\0', 'b', '\0', 'c', '\0'};
-  ssd.a = string(data_with_zero, sizeof(data_with_zero));
 
-  __encode(ssd, g_buf);
-
-  unsigned char expected[] = { 0x01, 0x06, 0x00, 'a', '\0', 'b', '\0', 'c', '\0'};
-  EXPECT_TRUE(ArraysMatch(expected, g_buf));
+  __decode(ssd, expected, sizeof(expected));  
+  EXPECT_TRUE(ArraysMatch(data_with_zero, ssd.a.c_str()));
 }
-
-
 
 TEST(DataX, should_able_to_decode_normal_struct) {
   DataX x;
-  unsigned char expected[] = { 0x01, 0x04, 0x00, 0x78, 0x56, 0x34, 0x12
+  char expected[] = { 0x01, 0x04, 0x00, 0x78, 0x56, 0x34, 0x12
                              , 0x02, 0x04, 0x00, 0x44, 0x33, 0x22, 0x11};
 
   __decode(x, expected, sizeof(expected));
@@ -458,14 +397,14 @@ TEST(DataX, should_able_to_decode_normal_struct) {
 TEST(DataWithNested, should_able_to_decode_struct_with_nested_struct) {
   DataWithNested xn;
 
-  unsigned char expected[] = { 0x01, 0x04, 0x00, 0xBE, 0xBA, 0xFE, 0xCA
+  char expected[] = { 0x01, 0x04, 0x00, 0xBE, 0xBA, 0xFE, 0xCA
                              , 0x02, 0x0E, 0x00 /*T and L of nested X*/
                              , 0x01, 0x04, 0x00, 0x78, 0x56, 0x34, 0x12
                              , 0x02, 0x04, 0x00, 0x44, 0x33, 0x22, 0x11
                              , 0x03, 0x04, 0x00, 0xEF, 0xBE, 0xAD, 0xDE
                              , 0x04, 0x01, 0x00, 0x45
                              , 0x05, 0x03, 0x00, 'X', 'Y', 'Z'
-                             , 0x06, 0x06, 0x00, 'h', 'e', 'l', 'l', 'o', '\0'};
+                             , 0x06, 0x05, 0x00, 'h', 'e', 'l', 'l', 'o'};
 
   __decode(xn, expected, sizeof(expected));
   
@@ -483,7 +422,7 @@ TEST(DataWithNested, should_able_to_decode_struct_with_nested_struct) {
 /*----------------------------------------------------------------------------*/
 TEST(DataX, should_ignore_unknown_tag__WHEN___decode_normal_struct) {
   DataX x;
-  unsigned char expected[] = { 0x01, 0x04, 0x00, 0x78, 0x56, 0x34, 0x12
+  char expected[] = { 0x01, 0x04, 0x00, 0x78, 0x56, 0x34, 0x12
                              , 0x03, 0x04, 0x00, 0x78, 0x56, 0x34, 0x12 /*unexpected tag 0x03*/
                              , 0x02, 0x04, 0x00, 0x44, 0x33, 0x22, 0x11};
 
@@ -496,7 +435,7 @@ TEST(DataX, should_ignore_unknown_tag__WHEN___decode_normal_struct) {
 TEST(DataWithNested, should_ignore_unknown_tag__WHEN__decode_struct_with_nested_struct) {
   DataWithNested xn;
 
-  unsigned char expected[] = { 0x01, 0x04, 0x00, 0xBE, 0xBA, 0xFE, 0xCA
+  char expected[] = { 0x01, 0x04, 0x00, 0xBE, 0xBA, 0xFE, 0xCA
                              , 0x09, 0x03, 0x00, 0x01, 0x02, 0x03       /*unknown tag 0x09*/
                              , 0x02, 0x0E, 0x00 /*T and L of nested X*/
                              , 0x01, 0x04, 0x00, 0x78, 0x56, 0x34, 0x12
@@ -521,3 +460,57 @@ TODO:
   uint8_t fields_presence_[__field_count / 8 + 1];
 - reset g_buf in test fixture
 ------------------------------------------------------------------------------*/
+
+
+/*----------------------------------------------------------------------------*/
+//namespace _DataX {
+//  struct DataX : Serializable {
+//    DataX() {
+//      fields_infos_ = &kFieldsInfos[0];      
+//      a = int();
+//      b = int();
+//    }
+//    
+//    int a; enum {__tag_a = 1};
+//    int b; enum {__tag_b = 2};
+//    enum {__field_count = 2};
+//    uint8_t fields_presence_[__field_count / 8 + 1];
+//    enum { encode_size = 0 + sizeof(tag_t) + sizeof(len_t) + EncodeSizeGetter<int>::encode_size
+//                           + sizeof(tag_t) + sizeof(len_t) + EncodeSizeGetter<int>::encode_size };
+//    static const FieldInfo kFieldsInfos[];
+//  };
+//  
+//  typedef DataX DataType;
+//  
+//  const FieldInfo DataX::kFieldsInfos[] = {
+//      { EncodeSizeGetter<int>::encode_size, offsetof(DataType, a), __tag_a, &Encoder<int>::encode, &Decoder<int>::decode }
+//    , { EncodeSizeGetter<int>::encode_size, offsetof(DataType, b), __tag_b, &Encoder<int>::encode, &Decoder<int>::decode }
+//    , { 0, kTagInvalid }
+//  };
+//}
+//using _DataX::DataX;
+
+/*----------------------------------------------------------------------------*/
+//  struct DataWithNested : Serializable {
+//    DataWithNested() {
+//      fields_infos_ = &kFieldsInfos[0];      
+//      a = int();
+//      x = DataX();
+//      b = int();    
+//    }
+//  
+//    int   a; enum {__tag_a = 1};
+//    DataX x; enum {__tag_x = 2};
+//    int   b; enum {__tag_b = 3};
+//    enum { encode_size = 0 + ENCODE_SIZE_TLV(int) + ENCODE_SIZE_TLV(DataX) + ENCODE_SIZE_TLV(int) };
+//  
+//    static const FieldInfo kFieldsInfos[];
+//  };
+//  
+//  const FieldInfo DataWithNested::kFieldsInfos[] = {
+//   { EncodeSizeGetter<int>::encode_size   , offsetof(DataWithNested, a), __tag_a, &Encoder<int>::encode   , &Decoder<int>::decode}
+//  ,{ EncodeSizeGetter<DataX>::encode_size , offsetof(DataWithNested, x), __tag_x, &Encoder<DataX>::encode , &Decoder<DataX>::decode}
+//  ,{ EncodeSizeGetter<int>::encode_size   , offsetof(DataWithNested, b), __tag_b, &Encoder<int>::encode   , &Decoder<int>::decode}
+//  ,{ 0, 0, kTagInvalid, NULL }
+//  };
+
