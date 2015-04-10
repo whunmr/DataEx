@@ -362,7 +362,7 @@ TEST(SingleStringData, should_able_to_encode_data_with_string_field) {
 
   __encode(ssd, g_buf);
 
-  unsigned char expected[] = { 0x01, 0x04, 0x00, 'a', 'b', 'c', '\0'};
+  unsigned char expected[] = { 0x01, 0x03, 0x00, 'a', 'b', 'c'};
   EXPECT_TRUE(ArraysMatch(expected, g_buf));
 }
 
@@ -505,6 +505,5 @@ TEST(DataWithNested, should_ignore_unknown_tag__WHEN__decode_struct_with_nested_
 TODO:
 - enum {__field_count = 2};
   uint8_t fields_presence_[__field_count / 8 + 1];
-- support varible length data.  data[0]
 - reset g_buf in test fixture
 ------------------------------------------------------------------------------*/
