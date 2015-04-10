@@ -297,8 +297,9 @@ DEF_DATA(DataWithNested);
         for (size_t i(0); i < size; ++i){
             if (expected[i] != actual[i]){
                 return ::testing::AssertionFailure() << "array[" << i
-                    << "] (" << actual[i] << ") != expected[" << i
-                    << "] (" << expected[i] << ")";
+                    << "] (" << actual[i]  << "[as int]: "<< (int)actual[i]
+                    << ") != expected[" << i
+                    << "] (" << expected[i] << "[as int]: " << (int)expected[i] << ")";
             }
         }
         return ::testing::AssertionSuccess();
@@ -365,6 +366,17 @@ TEST(SingleStringData, should_able_to_encode_data_with_string_field) {
   __encode(ssd, g_buf);
 
   unsigned char expected[] = { 0x01, 0x04, 0x00, 'a', 'b', 'c', '\0'};
+  EXPECT_TRUE(ArraysMatch(expected, g_buf));
+}
+
+TEST(SingleStringData, should_able_to_encode__bytes_contains_zero__with_string_field) {
+  SingleStringData ssd;
+  char data_with_zero[] = {'a', '\0', 'b', '\0', 'c', '\0'};
+  ssd.a = string(data_with_zero, sizeof(data_with_zero));
+
+  __encode(ssd, g_buf);
+
+  unsigned char expected[] = { 0x01, 0x07, 0x00, 'a', '\0', 'b', '\0', 'c', '\0', '\0'};
   EXPECT_TRUE(ArraysMatch(expected, g_buf));
 }
 
@@ -497,5 +509,5 @@ TODO:
 - enum {__field_count = 2};
   uint8_t fields_presence_[__field_count / 8 + 1];
 - support varible length data.  data[0]
+- reset g_buf in test fixture
 ------------------------------------------------------------------------------*/
-
