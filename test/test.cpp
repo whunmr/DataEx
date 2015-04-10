@@ -48,7 +48,7 @@ struct EncodeSizeGetter<T, typename boost::enable_if_c<boost::is_base_of<Seriali
 template<typename T>
 struct EncodeSizeGetter<T, typename boost::enable_if_c<boost::is_same<string, T>::value>::type > {
   static size_t size(const void* t) {
-    return ((string*)t)->size() + 1 /*1 for the ending zero*/;
+    return ((string*)t)->size();
   }
 };
 
@@ -78,9 +78,6 @@ struct Encoder<T, typename boost::enable_if_c<boost::is_same<string, T>::value>:
     string& str = *(string*)( ((uint8_t*)instance) + field_offset );
     memcpy(p, str.c_str(), str.size());
     p = ((uint8_t*)p) + str.size();
-    
-    *((char*)p) = 0;
-    p = ((uint8_t*)p) + 1;
   }
 };
 
@@ -104,7 +101,7 @@ template<typename T>
 struct Decoder<T, typename boost::enable_if_c<boost::is_same<string, T>::value>::type> {
   static void decode(void* instance, size_t field_offset, void*& p, size_t len) {
     string& str = *(string*)( ((uint8_t*)instance) + field_offset );
-    str = string((const char*)p);
+    str = string((const char*)p, len);
   }
 };
 
@@ -376,7 +373,7 @@ TEST(SingleStringData, should_able_to_encode__bytes_contains_zero__with_string_f
 
   __encode(ssd, g_buf);
 
-  unsigned char expected[] = { 0x01, 0x07, 0x00, 'a', '\0', 'b', '\0', 'c', '\0', '\0'};
+  unsigned char expected[] = { 0x01, 0x06, 0x00, 'a', '\0', 'b', '\0', 'c', '\0'};
   EXPECT_TRUE(ArraysMatch(expected, g_buf));
 }
 
@@ -410,7 +407,7 @@ TEST(DataWithNested, should_able_to_encode_struct_with_nested_struct) {
                              , 0x03, 0x04, 0x00, 0xEF, 0xBE, 0xAD, 0xDE
                              , 0x04, 0x01, 0x00, 0x45
                              , 0x05, 0x03, 0x00, 'X', 'Y', 'Z'
-                             , 0x06, 0x06, 0x00, 'h', 'e', 'l', 'l', 'o', '\0'};
+                             , 0x06, 0x05, 0x00, 'h', 'e', 'l', 'l', 'o'};
 
   EXPECT_TRUE(ArraysMatch(expected, g_buf));
 }
