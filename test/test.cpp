@@ -45,8 +45,8 @@ struct EncodeSizeGetter<T, typename boost::enable_if_c<boost::is_base_of<Seriali
   }
 };
 
-template<typename T>
-struct EncodeSizeGetter<T, typename boost::enable_if_c<boost::is_same<string, T>::value>::type > {
+template<>
+struct EncodeSizeGetter<string> {
   static size_t size(const void* t) {
     return ((string*)t)->size();
   }
@@ -72,8 +72,8 @@ struct Encoder<T, typename boost::enable_if_c<boost::is_base_of<Serializable, T>
   }
 };
 
-template<typename T>
-struct Encoder<T, typename boost::enable_if_c<boost::is_same<string, T>::value>::type> {
+template<>
+struct Encoder<string> {
   static void encode(const void* instance, size_t field_offset, void*& p) {
     string& str = *(string*)( ((uint8_t*)instance) + field_offset );
     memcpy(p, str.c_str(), str.size());
@@ -81,6 +81,7 @@ struct Encoder<T, typename boost::enable_if_c<boost::is_same<string, T>::value>:
   }
 };
 
+/*----------------------------------------------------------------------------*/
 template<typename T, class Enable = void>
 struct Decoder {
   static void decode(void* instance, size_t field_offset, void*& p, size_t len) {
@@ -97,8 +98,8 @@ struct Decoder<T, typename boost::enable_if_c<boost::is_base_of<Serializable, T>
   }
 };
 
-template<typename T>
-struct Decoder<T, typename boost::enable_if_c<boost::is_same<string, T>::value>::type> {
+template<>
+struct Decoder<string> {
   static void decode(void* instance, size_t field_offset, void*& p, size_t len) {
     string& str = *(string*)( ((uint8_t*)instance) + field_offset );
     str = string((const char*)p, len);
