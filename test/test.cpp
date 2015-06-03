@@ -228,34 +228,38 @@ DEF_DATA(DataX);
 DEF_DATA(DataWithNested);
 
 /*----------------------------------------------------------------------------*/
-    char __buf[32 * 1024]; char* g_buf = &__buf[0];
-
     #define ENCODE_SIZE_T (sizeof(tag_t))
     #define ENCODE_SIZE_TL (ENCODE_SIZE_T + sizeof(len_t))
     #define ENCODE_SIZE_TLV(value, ...) (ENCODE_SIZE_TL + EncodeSizeGetter<__VA_ARGS__>::size(&value))
-
 /*----------------------------------------------------------------------------*/
-TEST(SingleFieldData, size_of_struct__should_be_total_of__TLVs) {
+char __buf[32 * 1024]; char* g_buf = &__buf[0];
+class t : public ::testing::Test {
+  virtual void SetUp() {
+     memset(g_buf, 0, sizeof(__buf));
+  }
+};
+
+TEST_F(t, SingleFieldData__size_of_struct__should_be_total_of__TLVs) {
   SingleFieldData sfd;
   int i;
 
   EXPECT_EQ(ENCODE_SIZE_TLV(i, int), SingleFieldData::size(&sfd));
 }
 
-TEST(SingleStringData, should_able_to_encode__string_field__in_TLV) {
+TEST_F(t, SingleStringData__should_able_to_encode__string_field__in_TLV) {
   SingleStringData ssd;
   ssd.a = "abc";
 
   EXPECT_EQ(ENCODE_SIZE_TLV(ssd.a, string), SingleStringData::size(&ssd));
 }
 
-TEST(DataX, size_of_struct__should_be_total_of__TLVs) {
+TEST_F(t, DataX__size_of_struct__should_be_total_of__TLVs) {
   DataX dx;
   int i;
   EXPECT_EQ(ENCODE_SIZE_TLV(i, int)/*a*/ + ENCODE_SIZE_TLV(i, int)/*b*/, DataX::size(&dx));
 }
 
-TEST(DataWithNested, size_of_struct_with_nested_struct) {
+TEST_F(t, DataWithNested__size_of_struct_with_nested_struct) {
   DataWithNested dwn;
   DataX dx;
   int i;
@@ -274,7 +278,7 @@ TEST(DataWithNested, size_of_struct_with_nested_struct) {
 }
 
 /*----------------------------------------------------------------------------*/
-TEST(SingleFieldData, should_able_to_encode_SingleFieldData) {
+TEST_F(t, SingleFieldData__should_able_to_encode_SingleFieldData) {
   SingleFieldData x;
   x.a = 0x12345678;
 
@@ -284,7 +288,7 @@ TEST(SingleFieldData, should_able_to_encode_SingleFieldData) {
   EXPECT_TRUE(ArraysMatch(expected, g_buf));
 }
 
-TEST(SingleStringData, should_able_to_encode_data_with_string_field) {
+TEST_F(t, SingleStringData_should_able_to_encode_data_with_string_field) {
   SingleStringData ssd;
   ssd.a = "abc";
 
@@ -294,7 +298,7 @@ TEST(SingleStringData, should_able_to_encode_data_with_string_field) {
   EXPECT_TRUE(ArraysMatch(expected, g_buf));
 }
 
-TEST(SingleStringData, should_able_to_encode__bytes_contains_zero__with_string_field) {
+TEST_F(t, SingleStringData_should_able_to_encode__bytes_contains_zero__with_string_field) {
   SingleStringData ssd;
   char data_with_zero[] = {'a', '\0', 'b', '\0', 'c', '\0'};
   ssd.a = string(data_with_zero, sizeof(data_with_zero));
@@ -305,7 +309,7 @@ TEST(SingleStringData, should_able_to_encode__bytes_contains_zero__with_string_f
   EXPECT_TRUE(ArraysMatch(expected, g_buf));
 }
 
-TEST(DataX, should_able_to_encode_normal_struct) {
+TEST_F(t, DataX_should_able_to_encode_normal_struct) {
   DataX x;
   x.a = 0x12345678;
   x.b = 0x11223344;
@@ -316,7 +320,7 @@ TEST(DataX, should_able_to_encode_normal_struct) {
   EXPECT_TRUE(ArraysMatch(expected, g_buf));
 }
 
-TEST(DataWithNested, should_able_to_encode_struct_with_nested_struct) {
+TEST_F(t, DataWithNested_should_able_to_encode_struct_with_nested_struct) {
   DataWithNested xn;
   xn.a = 0xCAFEBABE;
   xn.x.a = 0x12345678;
@@ -341,7 +345,7 @@ TEST(DataWithNested, should_able_to_encode_struct_with_nested_struct) {
 }
 
 /*----------------------------------------------------------------------------*/
-TEST(SingleFieldData, should_able_to_decode_SingleFieldData) {
+TEST_F(t, SingleFieldData__should_able_to_decode_SingleFieldData) {
   SingleFieldData x;
   char expected[] = { 0x01, 0x04, 0x00, 0x78, 0x56, 0x34, 0x12};
 
@@ -350,7 +354,7 @@ TEST(SingleFieldData, should_able_to_decode_SingleFieldData) {
   EXPECT_EQ(0x12345678, x.a);
 }
 
-TEST(SingleStringData, should_able_to_dncode_data_with_string_field) {
+TEST_F(t, SingleStringData__should_able_to_dncode_data_with_string_field) {
   SingleStringData ssd;
   char expected[] = { 0x01, 0x04, 0x00, 'a', 'b', 'c', '\0'};
   
@@ -358,7 +362,7 @@ TEST(SingleStringData, should_able_to_dncode_data_with_string_field) {
   EXPECT_STREQ(ssd.a.c_str(), "abc");
 }
 
-TEST(SingleStringData, should_able_to_decode__bytes_contains_zero__with_string_field) {
+TEST_F(t, SingleStringData__should_able_to_decode__bytes_contains_zero__with_string_field) {
   SingleStringData ssd;
   char expected[] = { 0x01, 0x06, 0x00, 'a', '\0', 'b', '\0', 'c', '\0'};
   char data_with_zero[] = {'a', '\0', 'b', '\0', 'c', '\0'};
@@ -367,7 +371,7 @@ TEST(SingleStringData, should_able_to_decode__bytes_contains_zero__with_string_f
   EXPECT_TRUE(ArraysMatch(data_with_zero, ssd.a.c_str()));
 }
 
-TEST(DataX, should_able_to_decode_normal_struct) {
+TEST_F(t, DataX__should_able_to_decode_normal_struct) {
   DataX x;
   char expected[] = { 0x01, 0x04, 0x00, 0x78, 0x56, 0x34, 0x12
                              , 0x02, 0x04, 0x00, 0x44, 0x33, 0x22, 0x11};
@@ -378,7 +382,7 @@ TEST(DataX, should_able_to_decode_normal_struct) {
   EXPECT_EQ(0x11223344, x.b);
 }
 
-TEST(DataWithNested, should_able_to_decode_struct_with_nested_struct) {
+TEST_F(t, DataWithNested__should_able_to_decode_struct_with_nested_struct) {
   DataWithNested xn;
 
   char expected[] = { 0x01, 0x04, 0x00, 0xBE, 0xBA, 0xFE, 0xCA
@@ -404,7 +408,7 @@ TEST(DataWithNested, should_able_to_decode_struct_with_nested_struct) {
 }
 
 /*----------------------------------------------------------------------------*/
-TEST(DataX, should_ignore_unknown_tag__WHEN___decode_normal_struct) {
+TEST_F(t, DataX__should_ignore_unknown_tag__WHEN___decode_normal_struct) {
   DataX x;
   char expected[] = { 0x01, 0x04, 0x00, 0x78, 0x56, 0x34, 0x12
                              , 0x03, 0x04, 0x00, 0x78, 0x56, 0x34, 0x12 /*unexpected tag 0x03*/
@@ -416,7 +420,7 @@ TEST(DataX, should_ignore_unknown_tag__WHEN___decode_normal_struct) {
   EXPECT_EQ(0x11223344, x.b);
 }
 
-TEST(DataWithNested, should_ignore_unknown_tag__WHEN__decode_struct_with_nested_struct) {
+TEST_F(t, DataWithNested__should_ignore_unknown_tag__WHEN__decode_struct_with_nested_struct) {
   DataWithNested xn;
 
   char expected[] = { 0x01, 0x04, 0x00, 0xBE, 0xBA, 0xFE, 0xCA
@@ -442,7 +446,6 @@ TEST(DataWithNested, should_ignore_unknown_tag__WHEN__decode_struct_with_nested_
 TODO:
 - enum {__field_count = 2};
   uint8_t fields_presence_[__field_count / 8 + 1];
-- reset g_buf in test fixture
 - types
 bool
 string
