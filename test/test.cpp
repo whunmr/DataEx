@@ -7,23 +7,22 @@
 using namespace std;
 
 template <bool> struct enable_if {};
-template <>     struct enable_if<true> { 
+template <>     struct enable_if<true> {
   typedef void type;
 };
 
-template <class T, class U> class Conversion {
-   typedef char Small;
-   class Big { char dummy[2]; };
+template <class B, class D> struct IsBaseOf {
+  typedef char (&Small)[1];
+  typedef char (&Big)[2];
   
-   static Small Test(U);
-   static Big Test(...);
-  
-   static T MakeT();   
-public: 
-   static const bool exists = sizeof(Test(MakeT())) == sizeof(Small);
+  static Small Test(B);
+  static Big Test(...);
+  static D MakeD();
+
+  static const bool value = sizeof(Test(MakeD())) == sizeof(Small);  
 };
 
-#define SUPERSUBCLASS(T, SUPER) Conversion<const T*, const SUPER*>::exists
+#define __is_base_of(Base, Derived) IsBaseOf<const Base*, const Derived*>::value
 
 /*----------------------------------------------------------------------------*/
 typedef uint16_t len_t;
@@ -55,7 +54,7 @@ struct EncodeSizeGetter {
 };
 
 template<typename T>
-struct EncodeSizeGetter<T, typename enable_if<SUPERSUBCLASS(T, Serializable)>::type> {
+struct EncodeSizeGetter<T, typename enable_if<__is_base_of(Serializable, T)>::type> {
   static size_t size(const void* t) {
     return T::size(t);
   }
@@ -81,7 +80,7 @@ struct Encoder {
 };
 
 template<typename T>
-struct Encoder<T, typename enable_if<SUPERSUBCLASS(T, Serializable)>::type> {
+struct Encoder<T, typename enable_if<__is_base_of(Serializable, T)>::type> {
   static void encode(const void* instance, size_t field_offset, void*& p) {
     Serializable& nested = *(Serializable*)( ((uint8_t*)instance) + field_offset );
     p = __encode(nested, p);
@@ -107,7 +106,7 @@ struct Decoder {
 };
 
 template<typename T>
-struct Decoder<T, typename enable_if<SUPERSUBCLASS(T, Serializable)>::type> {
+struct Decoder<T, typename enable_if<__is_base_of(Serializable, T)>::type> {
   static void decode(void* instance, size_t field_offset, void*& p, size_t len) {
     Serializable& nested = *(Serializable*)( ((uint8_t*)instance) + field_offset );
     p = __decode(nested, p, len);
