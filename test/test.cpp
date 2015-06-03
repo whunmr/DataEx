@@ -9,6 +9,26 @@
 #include <boost/array.hpp>
 USING_MOCKCPP_NS;
 using namespace std;
+
+template <bool> struct enable_if {};
+template <>     struct enable_if<true> { 
+  typedef void type;
+};
+
+template <class T, class U> class Conversion {
+   typedef char Small;
+   class Big { char dummy[2]; };
+  
+   static Small Test(U);
+   static Big Test(...);
+  
+   static T MakeT();   
+public: 
+   static const bool exists = sizeof(Test(MakeT())) == sizeof(Small);
+};
+
+#define SUPERSUBCLASS(T, SUPER) Conversion<const T*, const SUPER*>::exists
+
 /*----------------------------------------------------------------------------*/
 typedef uint16_t len_t;
 typedef uint8_t  tag_t;
@@ -39,7 +59,7 @@ struct EncodeSizeGetter {
 };
 
 template<typename T>
-struct EncodeSizeGetter<T, typename boost::enable_if_c<boost::is_base_of<Serializable, T>::value>::type> {
+struct EncodeSizeGetter<T, typename enable_if<SUPERSUBCLASS(T, Serializable)>::type> {
   static size_t size(const void* t) {
     return T::size(t);
   }
@@ -65,7 +85,7 @@ struct Encoder {
 };
 
 template<typename T>
-struct Encoder<T, typename boost::enable_if_c<boost::is_base_of<Serializable, T>::value>::type> {
+struct Encoder<T, typename enable_if<SUPERSUBCLASS(T, Serializable)>::type> {
   static void encode(const void* instance, size_t field_offset, void*& p) {
     Serializable& nested = *(Serializable*)( ((uint8_t*)instance) + field_offset );
     p = __encode(nested, p);
@@ -252,6 +272,21 @@ DEF_DATA(DataWithNested);
     #define ENCODE_SIZE_TLV(value, ...) (ENCODE_SIZE_TL + EncodeSizeGetter<__VA_ARGS__>::size(&value))
 
 /*----------------------------------------------------------------------------*/
+TEST(XXX, xxxxxx) {
+   //struct EncodeSizeGetter<T, typename enable_if<SUPERSUBCLASS(T, Serializable), T>::type> {
+    //struct EncodeSizeGetter<T, typename boost::enable_if_c<boost::is_base_of<Serializable, T>::value>::type> {
+
+    //enable_if<SUPERSUBCLASS(T, Serializable), T>::type
+    cout << SUPERSUBCLASS(DataX, Serializable) << endl;
+    cout << boost::is_base_of<Serializable, DataX>::value << endl;
+
+    //enable_if<SUPERSUBCLASS(DataX, Serializable)>::type t;
+    //typename enable_if<SUPERSUBCLASS(DataX, Serializable)>::type t1;
+    //typename boost::enable_if_c<boost::is_base_of<Serializable, DataX>::value>::type t2;
+    // cout << typeid(t1).name() << endl;
+    // cout << typeid(t2).name() << endl;
+}
+
 TEST(SingleFieldData, size_of_struct__should_be_total_of__TLVs) {
   SingleFieldData sfd;
   int i;
