@@ -165,13 +165,13 @@ struct _NAME : Serializable {            \
     , &Decoder<__VA_ARGS__>::decode }, 
 
 #define DECLARE_DATA_CLASS(_NAME)                  \
-DECLARE_DATA_CLASS_1( EXPAND_FIELDS_##_NAME        \
+DECLARE_DATA_CLASS_1( __FIELDS_OF_##_NAME          \
                 , _NAME                            \
                 , __INIT_FIELD_IN_CONSTRUCTOR      \
                 , __DECLARE_FIELD                  \
                 , __FIELD_ENCODE_SIZE);
 
-#define DEFINE_DATA_CLASS(_NAME) DEFINE_DATA_CLASS_1(EXPAND_FIELDS_##_NAME, _NAME, __DEFINE_FIELD_INFO)
+#define DEFINE_DATA_CLASS(_NAME) DEFINE_DATA_CLASS_1(__FIELDS_OF_##_NAME, _NAME, __DEFINE_FIELD_INFO)
 #define DEFINE_DATA_CLASS_1(EXPAND_FIELDS, _NAME, _M1)  \
 namespace __NS_##_NAME {                                \
   const FieldInfo _NAME::kFieldsInfos[] = {             \
@@ -198,26 +198,26 @@ using __NS_##_NAME::_NAME;
 #define DEF_DATA(_NAME) DECLARE_DATA_CLASS(_NAME); DEFINE_DATA_CLASS(_NAME);
 
 /*----------------------------------------------------------------------------*/
-#define EXPAND_FIELDS_SingleFieldData(_)  \
+#define __FIELDS_OF_SingleFieldData(_)  \
   _(1, a, int)
 
 DEF_DATA(SingleFieldData);
 
 /*----------------------------------------------------------------------------*/
-#define EXPAND_FIELDS_SingleStringData(_)  \
+#define __FIELDS_OF_SingleStringData(_)  \
   _(1, a, string)
 
 DEF_DATA(SingleStringData);
 
 /*----------------------------------------------------------------------------*/
-#define EXPAND_FIELDS_DataX(_)  \
-  _(1, a, int)                  \
+#define __FIELDS_OF_DataX(_)  \
+  _(1, a, int)                \
   _(2, b, int)
 
 DEF_DATA(DataX);
 
 /*----------------------------------------------------------------------------*/
-#define EXPAND_FIELDS_DataWithNested(_)  \
+#define __FIELDS_OF_DataWithNested(_)    \
   _(1,  a, int  )                        \
   _(2,  x, DataX)                        \
   _(3,  b, int  )                        \
@@ -228,15 +228,18 @@ DEF_DATA(DataX);
 DEF_DATA(DataWithNested);
 
 /*----------------------------------------------------------------------------*/
-    #define ENCODE_SIZE_T (sizeof(tag_t))
-    #define ENCODE_SIZE_TL (ENCODE_SIZE_T + sizeof(len_t))
-    #define ENCODE_SIZE_TLV(value, ...) (ENCODE_SIZE_TL + EncodeSizeGetter<__VA_ARGS__>::size(&value))
+#define ENCODE_SIZE_T (sizeof(tag_t))
+#define ENCODE_SIZE_TL (ENCODE_SIZE_T + sizeof(len_t))
+#define ENCODE_SIZE_TLV(value, ...) (ENCODE_SIZE_TL + EncodeSizeGetter<__VA_ARGS__>::size(&value))
+
 /*----------------------------------------------------------------------------*/
-char __buf[32 * 1024]; char* g_buf = &__buf[0];
-class t : public ::testing::Test {
+struct t : public ::testing::Test {
   virtual void SetUp() {
-     memset(g_buf, 0, sizeof(__buf));
+     buf_ = &buf[0];
+     memset(buf_, 0, sizeof(buf));
   }
+  char buf[32 * 1024];
+  char* buf_;
 };
 
 TEST_F(t, SingleFieldData__size_of_struct__should_be_total_of__TLVs) {
@@ -282,20 +285,20 @@ TEST_F(t, SingleFieldData__should_able_to_encode_SingleFieldData) {
   SingleFieldData x;
   x.a = 0x12345678;
 
-  __encode(x, g_buf);
+  __encode(x, buf_);
 
   char expected[] = { 0x01, 0x04, 0x00, 0x78, 0x56, 0x34, 0x12};
-  EXPECT_TRUE(ArraysMatch(expected, g_buf));
+  EXPECT_TRUE(ArraysMatch(expected, buf_));
 }
 
 TEST_F(t, SingleStringData_should_able_to_encode_data_with_string_field) {
   SingleStringData ssd;
   ssd.a = "abc";
 
-  __encode(ssd, g_buf);
+  __encode(ssd, buf_);
 
   char expected[] = { 0x01, 0x03, 0x00, 'a', 'b', 'c'};
-  EXPECT_TRUE(ArraysMatch(expected, g_buf));
+  EXPECT_TRUE(ArraysMatch(expected, buf_));
 }
 
 TEST_F(t, SingleStringData_should_able_to_encode__bytes_contains_zero__with_string_field) {
@@ -303,21 +306,21 @@ TEST_F(t, SingleStringData_should_able_to_encode__bytes_contains_zero__with_stri
   char data_with_zero[] = {'a', '\0', 'b', '\0', 'c', '\0'};
   ssd.a = string(data_with_zero, sizeof(data_with_zero));
 
-  __encode(ssd, g_buf);
+  __encode(ssd, buf_);
 
   char expected[] = { 0x01, 0x06, 0x00, 'a', '\0', 'b', '\0', 'c', '\0'};
-  EXPECT_TRUE(ArraysMatch(expected, g_buf));
+  EXPECT_TRUE(ArraysMatch(expected, buf_));
 }
 
 TEST_F(t, DataX_should_able_to_encode_normal_struct) {
   DataX x;
   x.a = 0x12345678;
   x.b = 0x11223344;
-  __encode(x, g_buf);
+  __encode(x, buf_);
 
   char expected[] = { 0x01, 0x04, 0x00, 0x78, 0x56, 0x34, 0x12
                              , 0x02, 0x04, 0x00, 0x44, 0x33, 0x22, 0x11};
-  EXPECT_TRUE(ArraysMatch(expected, g_buf));
+  EXPECT_TRUE(ArraysMatch(expected, buf_));
 }
 
 TEST_F(t, DataWithNested_should_able_to_encode_struct_with_nested_struct) {
@@ -330,7 +333,7 @@ TEST_F(t, DataWithNested_should_able_to_encode_struct_with_nested_struct) {
   memcpy(xn.d.c_array(), "XYZ", strlen("XYZ"));
   xn.e = "hello";
 
-  __encode(xn, g_buf);
+  __encode(xn, buf_);
 
   char expected[] = { 0x01, 0x04, 0x00, 0xBE, 0xBA, 0xFE, 0xCA
                              , 0x02, 0x0E, 0x00 /*T and L of nested X*/
@@ -341,7 +344,7 @@ TEST_F(t, DataWithNested_should_able_to_encode_struct_with_nested_struct) {
                              , 0x05, 0x03, 0x00, 'X', 'Y', 'Z'
                              , 0x06, 0x05, 0x00, 'h', 'e', 'l', 'l', 'o'};
 
-  EXPECT_TRUE(ArraysMatch(expected, g_buf));
+  EXPECT_TRUE(ArraysMatch(expected, buf_));
 }
 
 /*----------------------------------------------------------------------------*/
