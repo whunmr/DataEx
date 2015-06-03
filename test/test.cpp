@@ -3,11 +3,7 @@
 #include <iostream>
 #include <string>
 #include <gtest/gtest.h>
-#include <mockcpp/mockcpp.hpp>
-#include <boost/utility/enable_if.hpp>
-#include <boost/type_traits.hpp>
 #include <boost/array.hpp>
-USING_MOCKCPP_NS;
 using namespace std;
 
 template <bool> struct enable_if {};
@@ -111,7 +107,7 @@ struct Decoder {
 };
 
 template<typename T>
-struct Decoder<T, typename boost::enable_if_c<boost::is_base_of<Serializable, T>::value>::type> {
+struct Decoder<T, typename enable_if<SUPERSUBCLASS(T, Serializable)>::type> {
   static void decode(void* instance, size_t field_offset, void*& p, size_t len) {
     Serializable& nested = *(Serializable*)( ((uint8_t*)instance) + field_offset );
     p = __decode(nested, p, len);
@@ -272,21 +268,6 @@ DEF_DATA(DataWithNested);
     #define ENCODE_SIZE_TLV(value, ...) (ENCODE_SIZE_TL + EncodeSizeGetter<__VA_ARGS__>::size(&value))
 
 /*----------------------------------------------------------------------------*/
-TEST(XXX, xxxxxx) {
-   //struct EncodeSizeGetter<T, typename enable_if<SUPERSUBCLASS(T, Serializable), T>::type> {
-    //struct EncodeSizeGetter<T, typename boost::enable_if_c<boost::is_base_of<Serializable, T>::value>::type> {
-
-    //enable_if<SUPERSUBCLASS(T, Serializable), T>::type
-    cout << SUPERSUBCLASS(DataX, Serializable) << endl;
-    cout << boost::is_base_of<Serializable, DataX>::value << endl;
-
-    //enable_if<SUPERSUBCLASS(DataX, Serializable)>::type t;
-    //typename enable_if<SUPERSUBCLASS(DataX, Serializable)>::type t1;
-    //typename boost::enable_if_c<boost::is_base_of<Serializable, DataX>::value>::type t2;
-    // cout << typeid(t1).name() << endl;
-    // cout << typeid(t2).name() << endl;
-}
-
 TEST(SingleFieldData, size_of_struct__should_be_total_of__TLVs) {
   SingleFieldData sfd;
   int i;
