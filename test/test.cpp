@@ -222,27 +222,13 @@ DEF_DATA(DataX);
   _(2,  x, DataX)                        \
   _(3,  b, int  )                        \
   _(4,  c, char )                        \
-  _(5,  d, dataex::array<char, 3>)        \
+  _(5,  d, dataex::array<char, 3>)       \
   _(6,  e, string)
 
 DEF_DATA(DataWithNested);
 
 /*----------------------------------------------------------------------------*/
     char __buf[32 * 1024]; char* g_buf = &__buf[0];
-
-    template<typename T, size_t size>
-    ::testing::AssertionResult ArraysMatch(const T (&expected)[size],
-                                           const char* actual){
-        for (size_t i(0); i < size; ++i){
-            if (expected[i] != actual[i]){
-                return ::testing::AssertionFailure() << "array[" << i
-                    << "] (" << actual[i]  << "[as int]: "<< (int)actual[i]
-                    << ") != expected[" << i
-                    << "] (" << expected[i] << "[as int]: " << (int)expected[i] << ")";
-            }
-        }
-        return ::testing::AssertionSuccess();
-    }
 
     #define ENCODE_SIZE_T (sizeof(tag_t))
     #define ENCODE_SIZE_TL (ENCODE_SIZE_T + sizeof(len_t))
@@ -457,58 +443,13 @@ TODO:
 - enum {__field_count = 2};
   uint8_t fields_presence_[__field_count / 8 + 1];
 - reset g_buf in test fixture
+- types
+bool
+string
+int32
+double
+float
+int64
+uint32
+uint64
 ------------------------------------------------------------------------------*/
-
-
-/*----------------------------------------------------------------------------*/
-//namespace _DataX {
-//  struct DataX : Serializable {
-//    DataX() {
-//      fields_infos_ = &kFieldsInfos[0];      
-//      a = int();
-//      b = int();
-//    }
-//    
-//    int a; enum {__tag_a = 1};
-//    int b; enum {__tag_b = 2};
-//    enum {__field_count = 2};
-//    uint8_t fields_presence_[__field_count / 8 + 1];
-//    enum { encode_size = 0 + sizeof(tag_t) + sizeof(len_t) + EncodeSizeGetter<int>::encode_size
-//                           + sizeof(tag_t) + sizeof(len_t) + EncodeSizeGetter<int>::encode_size };
-//    static const FieldInfo kFieldsInfos[];
-//  };
-//  
-//  typedef DataX DataType;
-//  
-//  const FieldInfo DataX::kFieldsInfos[] = {
-//      { EncodeSizeGetter<int>::encode_size, offsetof(DataType, a), __tag_a, &Encoder<int>::encode, &Decoder<int>::decode }
-//    , { EncodeSizeGetter<int>::encode_size, offsetof(DataType, b), __tag_b, &Encoder<int>::encode, &Decoder<int>::decode }
-//    , { 0, kTagInvalid }
-//  };
-//}
-//using _DataX::DataX;
-
-/*----------------------------------------------------------------------------*/
-//  struct DataWithNested : Serializable {
-//    DataWithNested() {
-//      fields_infos_ = &kFieldsInfos[0];      
-//      a = int();
-//      x = DataX();
-//      b = int();    
-//    }
-//  
-//    int   a; enum {__tag_a = 1};
-//    DataX x; enum {__tag_x = 2};
-//    int   b; enum {__tag_b = 3};
-//    enum { encode_size = 0 + ENCODE_SIZE_TLV(int) + ENCODE_SIZE_TLV(DataX) + ENCODE_SIZE_TLV(int) };
-//  
-//    static const FieldInfo kFieldsInfos[];
-//  };
-//  
-//  const FieldInfo DataWithNested::kFieldsInfos[] = {
-//   { EncodeSizeGetter<int>::encode_size   , offsetof(DataWithNested, a), __tag_a, &Encoder<int>::encode   , &Decoder<int>::decode}
-//  ,{ EncodeSizeGetter<DataX>::encode_size , offsetof(DataWithNested, x), __tag_x, &Encoder<DataX>::encode , &Decoder<DataX>::decode}
-//  ,{ EncodeSizeGetter<int>::encode_size   , offsetof(DataWithNested, b), __tag_b, &Encoder<int>::encode   , &Decoder<int>::decode}
-//  ,{ 0, 0, kTagInvalid, NULL }
-//  };
-
