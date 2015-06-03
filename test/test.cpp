@@ -3,7 +3,6 @@
 #include <iostream>
 #include <string>
 #include <gtest/gtest.h>
-#include <boost/array.hpp>
 #include "dataex_utility.h"
 using namespace std;
 
@@ -223,7 +222,7 @@ DEF_DATA(DataX);
   _(2,  x, DataX)                        \
   _(3,  b, int  )                        \
   _(4,  c, char )                        \
-  _(5,  d, boost::array<char, 3>)        \
+  _(5,  d, dataex::array<char, 3>)        \
   _(6,  e, string)
 
 DEF_DATA(DataWithNested);
@@ -275,14 +274,14 @@ TEST(DataWithNested, size_of_struct_with_nested_struct) {
   DataX dx;
   int i;
   char c;
-  boost::array<char, 3> a3;
+  dataex::array<char, 3> a3;
   string s;
 
   size_t expected = ENCODE_SIZE_TLV(i, int) /*a*/
                   + ENCODE_SIZE_TL /*TL of nested X*/ + DataX::size(&dx) /*encoded X*/
                   + ENCODE_SIZE_TLV(i, int)  /*b*/
                   + ENCODE_SIZE_TLV(c, char) /*c*/
-                  + ENCODE_SIZE_TLV(a3, boost::array<char, 3>)/*d*/
+                  + ENCODE_SIZE_TLV(a3, dataex::array<char, 3>)/*d*/
                   + ENCODE_SIZE_TLV(s, string)/*e*/;
   
   EXPECT_EQ(expected, DataWithNested::size(&dwn));
