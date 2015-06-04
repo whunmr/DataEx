@@ -237,13 +237,12 @@ DEF_DATA(SingleStringData);
 DEF_DATA(DataX);
 
 /*----------------------------------------------------------------------------*/
-typedef char char3[3];
 #define __FIELDS_OF_DataWithNested(_)    \
   _(1,  a, int  )                        \
   _(2,  x, DataX)                        \
   _(3,  b, int  )                        \
   _(4,  c, char )                        \
-  _(5,  d, char3)                        \
+  _(5,  d, __array(char, 3))             \
   _(6,  e, string)                       \
   _(7,  f, bool)
 
@@ -473,12 +472,15 @@ TEST_F(t, DataWithNested__should_ignore_unknown_tag__WHEN__decode_struct_with_ne
   EXPECT_EQ(0x11223344, xn.x.b);
   EXPECT_EQ(0xDEADBEEF, xn.b);
   EXPECT_EQ(0x45, xn.c);
+
+  cout << typeid(char[3]).name() << endl;
 }
 
 /*----------------------------------------------------------------------------
 TODO:
 - enum {__field_count = 2};
   uint8_t fields_presence_[__field_count / 8 + 1];
+- array of nested serialize field
 - types
 -bool
 -string
