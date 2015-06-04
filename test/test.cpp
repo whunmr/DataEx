@@ -42,6 +42,14 @@ struct EncodeSizeGetter<T, typename enable_if<__is_base_of(Serializable, T)>::ty
   }
 };
 
+template<typename T, size_t N>
+struct EncodeSizeGetter< dataex::array<T,N>
+                       , typename enable_if<__is_base_of(Serializable, T)>::type> {
+  static size_t size(const void* t) {
+    return T::size(t);
+  }
+};
+
 template<>
 struct EncodeSizeGetter<string> {
   static size_t size(const void* t) {
@@ -58,15 +66,17 @@ struct Encoder {
   static void encode(const void* instance, size_t field_offset, void*& p) {
     *((T*)p) = *(T*)( ((uint8_t*)instance) + field_offset );
     p = ((T*)p)+1;
+    cout << "xxxxxxxxxxxxxxxxxxxx" << endl;
   }
 };
 
-template<typename T, int N>
-struct Encoder<T[N]> {
+template<typename T, size_t N>
+struct Encoder<dataex::array<T,N>, typename enable_if<__is_base_of(Serializable, T)>::type> {
   static void encode(const void* instance, size_t field_offset, void*& p) {
-    T* pt = (T*)( ((uint8_t*)instance) + field_offset );
-    memcpy(p, pt, sizeof(T) * N);
-    p = ((T*)p)+N;
+    //T* pt = (T*)( ((uint8_t*)instance) + field_offset );
+    //memcpy(p, pt, sizeof(T) * N);
+    //p = ((T*)p)+N;
+    cout << "********************" << endl;
   }
 };
 
@@ -96,14 +106,14 @@ struct Decoder {
   }
 };
 
-template<typename T, int N>
-struct Decoder<T[N]> {
-  static void decode(void* instance, size_t field_offset, void*& p, size_t len) {
-    T* dest = (T*)(((uint8_t*)instance)+field_offset);
-    memcpy(dest, p, sizeof(T) * N);
-    p = ((T*)p)+N;
-  }
-};
+//template<typename T, int N>
+//struct Decoder<T[N]> {
+//  static void decode(void* instance, size_t field_offset, void*& p, size_t len) {
+//    T* dest = (T*)(((uint8_t*)instance)+field_offset);
+//    memcpy(dest, p, sizeof(T) * N);
+//    p = ((T*)p)+N;
+//  }
+//};
 
 template<typename T>
 struct Decoder<T, typename enable_if<__is_base_of(Serializable, T)>::type> {
@@ -237,6 +247,12 @@ DEF_DATA(SingleStringData);
 DEF_DATA(DataX);
 
 /*----------------------------------------------------------------------------*/
+#define __FIELDS_OF_DataXArray(_)  \
+  _(1, a, __array(DataX, 2))       \
+
+DEF_DATA(DataXArray);
+
+/*----------------------------------------------------------------------------*/
 #define __FIELDS_OF_DataWithNested(_)    \
   _(1,  a, int  )                        \
   _(2,  x, DataX)                        \
@@ -344,6 +360,18 @@ TEST_F(t, DataX_should_able_to_encode_normal_struct) {
   char expected[] = { 0x01, 0x04, 0x00, 0x78, 0x56, 0x34, 0x12
                              , 0x02, 0x04, 0x00, 0x44, 0x33, 0x22, 0x11};
   EXPECT_TRUE(ArraysMatch(expected, buf_));
+}
+
+TEST_F(t, DataXArray_should_able_to_encode___struct_with_nested_struct_array) {
+  DataXArray dxa;
+  dxa.a[0].a = 0x00112233;
+  dxa.a[0].b = 0x13245768;
+  dxa.a[1].a = 0xcafebabe;
+  dxa.a[2].b = 0xdeadbeef;
+
+  __encode(dxa, buf_);
+  cout << DataXArray::size(&dxa) << endl;
+  cout << EncodeSizeGetter<DataXArray>::size() << endl;
 }
 
 TEST_F(t, DataWithNested_should_able_to_encode_struct_with_nested_struct) {
@@ -472,8 +500,6 @@ TEST_F(t, DataWithNested__should_ignore_unknown_tag__WHEN__decode_struct_with_ne
   EXPECT_EQ(0x11223344, xn.x.b);
   EXPECT_EQ(0xDEADBEEF, xn.b);
   EXPECT_EQ(0x45, xn.c);
-
-  cout << typeid(char[3]).name() << endl;
 }
 
 /*----------------------------------------------------------------------------
