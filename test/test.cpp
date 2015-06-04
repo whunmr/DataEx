@@ -148,7 +148,7 @@ struct _NAME : Serializable {            \
   _NAME() {                              \
     fields_infos_ = &kFieldsInfos[0]; 
 
-#define __INIT_FIELD_IN_CONSTRUCTOR(_TAG, _FIELD_NAME, ...) /*_FIELD_NAME = __VA_ARGS__();*/
+#define __INIT_FIELD_IN_CONSTRUCTOR(_TAG, _FIELD_NAME, ...) _FIELD_NAME = __VA_ARGS__();
 
 #define __DECLARE_FIELD(_TAG, _FIELD_NAME, ...) \
   __VA_ARGS__ _FIELD_NAME;                      \
