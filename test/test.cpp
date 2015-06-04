@@ -61,6 +61,15 @@ struct Encoder {
   }
 };
 
+template<typename T, int N>
+struct Encoder<T[N]> {
+  static void encode(const void* instance, size_t field_offset, void*& p) {
+    T* pt = (T*)( ((uint8_t*)instance) + field_offset );
+    memcpy(p, pt, sizeof(T) * N);
+    p = ((T*)p)+N;
+  }
+};
+
 template<typename T>
 struct Encoder<T, typename enable_if<__is_base_of(Serializable, T)>::type> {
   static void encode(const void* instance, size_t field_offset, void*& p) {
@@ -84,6 +93,15 @@ struct Decoder {
   static void decode(void* instance, size_t field_offset, void*& p, size_t len) {
     *(T*)(((uint8_t*)instance)+field_offset) = *((T*)p);
     p = ((T*)p)+1;
+  }
+};
+
+template<typename T, int N>
+struct Decoder<T[N]> {
+  static void decode(void* instance, size_t field_offset, void*& p, size_t len) {
+    T* dest = (T*)(((uint8_t*)instance)+field_offset);
+    memcpy(dest, p, sizeof(T) * N);
+    p = ((T*)p)+N;
   }
 };
 
@@ -219,12 +237,13 @@ DEF_DATA(SingleStringData);
 DEF_DATA(DataX);
 
 /*----------------------------------------------------------------------------*/
+typedef char char3[3];
 #define __FIELDS_OF_DataWithNested(_)    \
   _(1,  a, int  )                        \
   _(2,  x, DataX)                        \
   _(3,  b, int  )                        \
   _(4,  c, char )                        \
-  _(5,  d, dataex::array<char, 3>)       \
+  _(5,  d, char3)                        \
   _(6,  e, string)                       \
   _(7,  f, bool)
 
@@ -335,7 +354,7 @@ TEST_F(t, DataWithNested_should_able_to_encode_struct_with_nested_struct) {
   xn.x.b = 0x11223344;
   xn.b = 0xDEADBEEF;
   xn.c = 0x45;
-  memcpy(xn.d.c_array(), "XYZ", strlen("XYZ"));
+  memcpy(&xn.d, "XYZ", strlen("XYZ"));
 
   char buf_with_zero[] = {0x11, 0x22, 0x00, 0x00, 0x33};
   xn.e = string(buf_with_zero, sizeof(buf_with_zero));
