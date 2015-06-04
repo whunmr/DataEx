@@ -370,34 +370,37 @@ TEST_F(t, DataX_should_able_to_encode_normal_struct) {
   EXPECT_TRUE(ArraysMatch(expected, buf_));
 }
 
-TEST_F(t, DataXArray_should_able_to_encode_and_decode___struct_with_nested_struct_array) {
+/*----------------------------------------------------------------------------*/
+char DataXArray_expected[] = { 0x01, 0x1c, 0x00  /* T and L of field*/
+                             , 0x0E, 0x00        /* L for a[0] */
+                             , 0x01, 0x04, 0x00, 0x33, 0x22, 0x11, 0x00
+                             , 0x02, 0x04, 0x00, 0x68, 0x57, 0x24, 0x13
+                             , 0x0E, 0x00        /* L for a[1] */
+                             , 0x01, 0x04, 0x00, 0xbe, 0xba, 0xfe, 0xca
+                             , 0x02, 0x04, 0x00, 0xef, 0xbe, 0xad, 0xde };
+
+TEST_F(t, DataXArray_should_able_to__encode__struct_with_nested_struct_array) {
   DataXArray dxa;
   dxa.a[0].a = 0x00112233;
   dxa.a[0].b = 0x13245768;
   dxa.a[1].a = 0xcafebabe;
   dxa.a[1].b = 0xdeadbeef;
-
-  char expected[] = { 0x01, 0x1c, 0x00  /* T and L of field*/
-                    , 0x0E, 0x00        /* L for a[0] */
-                    , 0x01, 0x04, 0x00, 0x33, 0x22, 0x11, 0x00
-                    , 0x02, 0x04, 0x00, 0x68, 0x57, 0x24, 0x13
-                    , 0x0E, 0x00        /* L for a[1] */
-                    , 0x01, 0x04, 0x00, 0xbe, 0xba, 0xfe, 0xca
-                    , 0x02, 0x04, 0x00, 0xef, 0xbe, 0xad, 0xde };
                       
   __encode(dxa, buf_);
-  EXPECT_TRUE(ArraysMatch(expected, buf_));
+  EXPECT_TRUE(ArraysMatch(DataXArray_expected, buf_));
+}
 
-  /*----------------------------------------*/
+TEST_F(t, DataXArray_should_able_to__decode___struct_with_nested_struct_array) {
   DataXArray dxb;
   
-  __decode(dxb, expected, sizeof(expected));
+  __decode(dxb, DataXArray_expected, sizeof(DataXArray_expected));
   
   EXPECT_EQ(0x00112233, dxb.a[0].a);
   EXPECT_EQ(0x13245768, dxb.a[0].b);
   EXPECT_EQ(0xcafebabe, dxb.a[1].a);
   EXPECT_EQ(0xdeadbeef, dxb.a[1].b);
 }
+/*----------------------------------------------------------------------------*/
 
 TEST_F(t, DataWithNested_should_able_to_encode_struct_with_nested_struct) {
   DataWithNested xn;
