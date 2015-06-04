@@ -223,7 +223,8 @@ DEF_DATA(DataX);
   _(3,  b, int  )                        \
   _(4,  c, char )                        \
   _(5,  d, dataex::array<char, 3>)       \
-  _(6,  e, string)
+  _(6,  e, string)                       \
+  _(7,  f, bool)
 
 DEF_DATA(DataWithNested);
 
@@ -269,13 +270,15 @@ TEST_F(t, DataWithNested__size_of_struct_with_nested_struct) {
   char c;
   dataex::array<char, 3> a3;
   string s;
+  bool b;
 
   size_t expected = ENCODE_SIZE_TLV(i, int) /*a*/
                   + ENCODE_SIZE_TL /*TL of nested X*/ + DataX::size(&dx) /*encoded X*/
                   + ENCODE_SIZE_TLV(i, int)  /*b*/
                   + ENCODE_SIZE_TLV(c, char) /*c*/
                   + ENCODE_SIZE_TLV(a3, dataex::array<char, 3>)/*d*/
-                  + ENCODE_SIZE_TLV(s, string)/*e*/;
+                  + ENCODE_SIZE_TLV(s, string)/*e*/
+                  + ENCODE_SIZE_TLV(b, bool);
   
   EXPECT_EQ(expected, DataWithNested::size(&dwn));
 }
@@ -332,6 +335,7 @@ TEST_F(t, DataWithNested_should_able_to_encode_struct_with_nested_struct) {
   xn.c = 0x45;
   memcpy(xn.d.c_array(), "XYZ", strlen("XYZ"));
   xn.e = "hello";
+  xn.f = true;
 
   __encode(xn, buf_);
 
@@ -342,8 +346,9 @@ TEST_F(t, DataWithNested_should_able_to_encode_struct_with_nested_struct) {
                              , 0x03, 0x04, 0x00, 0xEF, 0xBE, 0xAD, 0xDE
                              , 0x04, 0x01, 0x00, 0x45
                              , 0x05, 0x03, 0x00, 'X', 'Y', 'Z'
-                             , 0x06, 0x05, 0x00, 'h', 'e', 'l', 'l', 'o'};
-
+                             , 0x06, 0x05, 0x00, 'h', 'e', 'l', 'l', 'o'
+                             , 0x07, 0x01, 0x00, 0x01};
+  
   EXPECT_TRUE(ArraysMatch(expected, buf_));
 }
 
@@ -395,7 +400,8 @@ TEST_F(t, DataWithNested__should_able_to_decode_struct_with_nested_struct) {
                              , 0x03, 0x04, 0x00, 0xEF, 0xBE, 0xAD, 0xDE
                              , 0x04, 0x01, 0x00, 0x45
                              , 0x05, 0x03, 0x00, 'X', 'Y', 'Z'
-                             , 0x06, 0x05, 0x00, 'h', 'e', 'l', 'l', 'o'};
+                             , 0x06, 0x05, 0x00, 'h', 'e', 'l', 'l', 'o'
+                             , 0x07, 0x01, 0x00, 0xff};
 
   __decode(xn, expected, sizeof(expected));
   
