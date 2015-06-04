@@ -47,7 +47,6 @@ struct EncodeSizeGetter< dataex::array<T,N>
                        , typename enable_if<__is_base_of(Serializable, T)>::type> {
   static size_t size(const void* t) {
     size_t s = 0;
-    
     const T* pt = (const T*)t;
     for (int i = 0; i < N; ++i) {
       s += EncodeSizeGetter<T>::size(&pt[i]);
@@ -111,14 +110,15 @@ struct Decoder {
   }
 };
 
-//template<typename T, int N>
-//struct Decoder<T[N]> {
-//  static void decode(void* instance, size_t field_offset, void*& p, size_t len) {
-//    T* dest = (T*)(((uint8_t*)instance)+field_offset);
-//    memcpy(dest, p, sizeof(T) * N);
-//    p = ((T*)p)+N;
-//  }
-//};
+template<typename T, size_t N>
+struct Decoder<dataex::array<T,N>, typename enable_if<__is_base_of(Serializable, T)>::type> {
+  static void decode(void* instance, size_t field_offset, void*& p, size_t len) {
+    Serializable* dest = (Serializable*)( ((uint8_t*)instance) + field_offset );
+    for (int i = 0; i < N; ++i) {
+      p = __decode(dest[i], p, len); ///pass len is not correct here.
+    }
+  }
+};
 
 template<typename T>
 struct Decoder<T, typename enable_if<__is_base_of(Serializable, T)>::type> {
@@ -136,7 +136,6 @@ struct Decoder<string> {
     p = ((uint8_t*)p)+len;
   }
 };
-
 
 /*----------------------------------------------------------------------------*/
 void* __encode(const Serializable& d, void* p) {
@@ -367,7 +366,7 @@ TEST_F(t, DataX_should_able_to_encode_normal_struct) {
   EXPECT_TRUE(ArraysMatch(expected, buf_));
 }
 
-TEST_F(t, DataXArray_should_able_to_encode___struct_with_nested_struct_array) {
+TEST_F(t, DataXArray_should_able_to_encode_and_decode___struct_with_nested_struct_array) {
   DataXArray dxa;
   dxa.a[0].a = 0x00112233;
   dxa.a[0].b = 0x13245768;
@@ -383,6 +382,14 @@ TEST_F(t, DataXArray_should_able_to_encode___struct_with_nested_struct_array) {
   __encode(dxa, buf_);
   
   EXPECT_TRUE(ArraysMatch(expected, buf_));
+
+  /*----------------------------------------*/
+  DataXArray dxb;
+  __decode(dxb, expected, sizeof(expected));
+  EXPECT_EQ(0x00112233, dxb.a[0].a);
+  EXPECT_EQ(0x13245768, dxb.a[0].b);
+  EXPECT_EQ(0xcafebabe, dxb.a[1].a);
+  EXPECT_EQ(0x12345678, dxb.a[1].b);
 }
 
 TEST_F(t, DataWithNested_should_able_to_encode_struct_with_nested_struct) {
