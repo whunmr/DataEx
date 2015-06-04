@@ -72,17 +72,16 @@ struct Encoder {
   static void encode(const void* instance, size_t field_offset, void*& p) {
     *((T*)p) = *(T*)( ((uint8_t*)instance) + field_offset );
     p = ((T*)p)+1;
-    cout << "xxxxxxxxxxxxxxxxxxxx" << endl;
   }
 };
 
 template<typename T, size_t N>
 struct Encoder<dataex::array<T,N>, typename enable_if<__is_base_of(Serializable, T)>::type> {
   static void encode(const void* instance, size_t field_offset, void*& p) {
-    //T* pt = (T*)( ((uint8_t*)instance) + field_offset );
-    //memcpy(p, pt, sizeof(T) * N);
-    //p = ((T*)p)+N;
-    cout << "********************" << endl;
+    T* pt = (T*)( ((uint8_t*)instance) + field_offset );
+    for (int i = 0; i < N; ++i) {
+      p = __encode(pt[i], p);
+    }
   }
 };
 
@@ -364,7 +363,7 @@ TEST_F(t, DataX_should_able_to_encode_normal_struct) {
   __encode(x, buf_);
 
   char expected[] = { 0x01, 0x04, 0x00, 0x78, 0x56, 0x34, 0x12
-                             , 0x02, 0x04, 0x00, 0x44, 0x33, 0x22, 0x11};
+                    , 0x02, 0x04, 0x00, 0x44, 0x33, 0x22, 0x11};
   EXPECT_TRUE(ArraysMatch(expected, buf_));
 }
 
@@ -373,11 +372,17 @@ TEST_F(t, DataXArray_should_able_to_encode___struct_with_nested_struct_array) {
   dxa.a[0].a = 0x00112233;
   dxa.a[0].b = 0x13245768;
   dxa.a[1].a = 0xcafebabe;
-  dxa.a[2].b = 0xdeadbeef;
+  dxa.a[1].b = 0x12345678;
 
+  char expected[] = { 0x01, 0x1c, 0x00
+                    , 0x01, 0x04, 0x00, 0x33, 0x22, 0x11, 0x00
+                    , 0x02, 0x04, 0x00, 0x68, 0x57, 0x24, 0x13
+                    , 0x01, 0x04, 0x00, 0xbe, 0xba, 0xfe, 0xca
+                    , 0x02, 0x04, 0x00, 0x78, 0x56, 0x34, 0x12 };
+                      
   __encode(dxa, buf_);
-  cout << DataXArray::size(&dxa) << endl;
-  cout << EncodeSizeGetter<DataXArray>::size(&dxa) << endl;
+  
+  EXPECT_TRUE(ArraysMatch(expected, buf_));
 }
 
 TEST_F(t, DataWithNested_should_able_to_encode_struct_with_nested_struct) {
