@@ -28,10 +28,10 @@ namespace dataex {
 template<typename T, size_t N>
   struct array{
     T elems[N];
-    
-    typedef T&             reference;
+    operator T*() { return elems; }
+          
+    /*typedef T&             reference;
     typedef const T&       const_reference;
-    
     reference operator[](size_t i) { 
         assert(("out of range", i < N));
         return elems[i];
@@ -43,10 +43,11 @@ template<typename T, size_t N>
     }
   
     const T* data() const { return elems; }
-    T* data() { return elems; }
-    T* c_array() { return elems; }
+    T* data() { return elems; } */
   };
 } //namespace dataex
+
+#define __array(type, size) dataex::array<type, size>
 
 /*----------------------------------------------------------------------------*/
 template<typename T, size_t size>
