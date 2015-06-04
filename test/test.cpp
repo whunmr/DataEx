@@ -46,7 +46,13 @@ template<typename T, size_t N>
 struct EncodeSizeGetter< dataex::array<T,N>
                        , typename enable_if<__is_base_of(Serializable, T)>::type> {
   static size_t size(const void* t) {
-    return T::size(t);
+    size_t s = 0;
+    
+    const T* pt = (const T*)t;
+    for (int i = 0; i < N; ++i) {
+      s += EncodeSizeGetter<T>::size(&pt[i]);
+    }
+    return s;
   }
 };
 
@@ -371,7 +377,7 @@ TEST_F(t, DataXArray_should_able_to_encode___struct_with_nested_struct_array) {
 
   __encode(dxa, buf_);
   cout << DataXArray::size(&dxa) << endl;
-  cout << EncodeSizeGetter<DataXArray>::size() << endl;
+  cout << EncodeSizeGetter<DataXArray>::size(&dxa) << endl;
 }
 
 TEST_F(t, DataWithNested_should_able_to_encode_struct_with_nested_struct) {
@@ -516,4 +522,7 @@ double
 float
 int64
 uint64
+
+- remove cout << DataXArray::size(&dxa) << endl; from type;
+  using EncodeSizeGetter instead.
 ------------------------------------------------------------------------------*/
