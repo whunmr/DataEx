@@ -6,7 +6,6 @@
 #include "dataex_utility.h"
 using namespace std;
 
-/*----------------------------------------------------------------------------*/
 typedef uint16_t len_t;
 typedef uint8_t  tag_t;
 static const tag_t kTagInvalid = 0;
