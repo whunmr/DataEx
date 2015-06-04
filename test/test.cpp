@@ -100,8 +100,10 @@ struct Decoder<string> {
   static void decode(void* instance, size_t field_offset, void*& p, size_t len) {
     string& str = *(string*)( ((uint8_t*)instance) + field_offset );
     str = string((const char*)p, len);
+    p = ((uint8_t*)p)+len;
   }
 };
+
 
 /*----------------------------------------------------------------------------*/
 void* __encode(const Serializable& d, void* p) {
@@ -125,12 +127,12 @@ void* __decode(Serializable& d, void* p, size_t total_len) {
   for (const FieldInfo* fi = &d.fields_infos_[0]; fi->tag_ != kTagInvalid; ++fi) {
     field_count++;
   }
-  
+
   void* end = (void*)(((uint8_t*)p) + total_len);
   while (p < end) {
     tag_t t = *(tag_t*)p;   p = ((tag_t*)p)+1;
     len_t len = *(len_t*)p; p = ((len_t*)p)+1;
-
+    
     if ( t > 0 && t <= field_count ) {
       const FieldInfo* fi = &d.fields_infos_[t - 1];
       (*fi->decode_func_)(&d, fi->offset_, p, len);
@@ -401,7 +403,7 @@ TEST_F(t, DataWithNested__should_able_to_decode_struct_with_nested_struct) {
                              , 0x04, 0x01, 0x00, 0x45
                              , 0x05, 0x03, 0x00, 'X', 'Y', 'Z'
                              , 0x06, 0x05, 0x00, 'h', 'e', 'l', 'l', 'o'
-                             , 0x07, 0x01, 0x00, 0xff};
+                             , 0x07, 0x01, 0x00, 0x01};
 
   __decode(xn, expected, sizeof(expected));
   
@@ -413,7 +415,8 @@ TEST_F(t, DataWithNested__should_able_to_decode_struct_with_nested_struct) {
   EXPECT_EQ('X',       xn.d[0]);
   EXPECT_EQ('Y',       xn.d[1]);
   EXPECT_EQ('Z',       xn.d[2]);
-  EXPECT_STREQ(xn.e.c_str(), "hello");
+  EXPECT_STREQ("hello", xn.e.c_str());
+  EXPECT_EQ(true,      xn.f);
 }
 
 /*----------------------------------------------------------------------------*/
