@@ -78,7 +78,10 @@ template<typename T, size_t N>
 struct Encoder<dataex::array<T,N>, typename enable_if<__is_base_of(Serializable, T)>::type> {
   static void encode(const void* instance, size_t field_offset, void*& p) {
     T* pt = (T*)( ((uint8_t*)instance) + field_offset );
+    
     for (int i = 0; i < N; ++i) {
+      *((len_t*)p) = EncodeSizeGetter<T>::size(&pt[i]);
+      p = ((len_t*)p)+1;
       p = __encode(pt[i], p);
     }
   }
@@ -112,10 +115,12 @@ struct Decoder {
 
 template<typename T, size_t N>
 struct Decoder<dataex::array<T,N>, typename enable_if<__is_base_of(Serializable, T)>::type> {
-  static void decode(void* instance, size_t field_offset, void*& p, size_t len) {
-    Serializable* dest = (Serializable*)( ((uint8_t*)instance) + field_offset );
+  static void decode(void* instance, size_t field_offset, void*& p, size_t total_len) {
+    T* dest = (T*)( ((uint8_t*)instance) + field_offset );
     for (int i = 0; i < N; ++i) {
-      p = __decode(dest[i], p, len); ///pass len is not correct here.
+      //TODO: check dest[i] not exceeds total_len.
+      len_t len  = *(len_t*)p; p = ((len_t*)p)+1;
+      p = __decode(dest[i], p, len); 
     }
   }
 };
@@ -371,25 +376,28 @@ TEST_F(t, DataXArray_should_able_to_encode_and_decode___struct_with_nested_struc
   dxa.a[0].a = 0x00112233;
   dxa.a[0].b = 0x13245768;
   dxa.a[1].a = 0xcafebabe;
-  dxa.a[1].b = 0x12345678;
+  dxa.a[1].b = 0xdeadbeef;
 
-  char expected[] = { 0x01, 0x1c, 0x00
+  char expected[] = { 0x01, 0x1c, 0x00  /* T and L of field*/
+                    , 0x0E, 0x00        /* L for a[0] */
                     , 0x01, 0x04, 0x00, 0x33, 0x22, 0x11, 0x00
                     , 0x02, 0x04, 0x00, 0x68, 0x57, 0x24, 0x13
+                    , 0x0E, 0x00        /* L for a[1] */
                     , 0x01, 0x04, 0x00, 0xbe, 0xba, 0xfe, 0xca
-                    , 0x02, 0x04, 0x00, 0x78, 0x56, 0x34, 0x12 };
+                    , 0x02, 0x04, 0x00, 0xef, 0xbe, 0xad, 0xde };
                       
   __encode(dxa, buf_);
-  
   EXPECT_TRUE(ArraysMatch(expected, buf_));
 
   /*----------------------------------------*/
   DataXArray dxb;
+  
   __decode(dxb, expected, sizeof(expected));
+  
   EXPECT_EQ(0x00112233, dxb.a[0].a);
   EXPECT_EQ(0x13245768, dxb.a[0].b);
   EXPECT_EQ(0xcafebabe, dxb.a[1].a);
-  EXPECT_EQ(0x12345678, dxb.a[1].b);
+  EXPECT_EQ(0xdeadbeef, dxb.a[1].b);
 }
 
 TEST_F(t, DataWithNested_should_able_to_encode_struct_with_nested_struct) {
@@ -537,4 +545,5 @@ uint64
 
 - remove cout << DataXArray::size(&dxa) << endl; from type;
   using EncodeSizeGetter instead.
+- all kinds of compatiblity tests. new old tests.  
 ------------------------------------------------------------------------------*/
