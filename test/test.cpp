@@ -336,7 +336,9 @@ TEST_F(t, DataWithNested_should_able_to_encode_struct_with_nested_struct) {
   xn.b = 0xDEADBEEF;
   xn.c = 0x45;
   memcpy(xn.d.c_array(), "XYZ", strlen("XYZ"));
-  xn.e = "hello";
+
+  char buf_with_zero[] = {0x11, 0x22, 0x00, 0x00, 0x33};
+  xn.e = string(buf_with_zero, sizeof(buf_with_zero));
   xn.f = true;
 
   __encode(xn, buf_);
@@ -348,7 +350,7 @@ TEST_F(t, DataWithNested_should_able_to_encode_struct_with_nested_struct) {
                              , 0x03, 0x04, 0x00, 0xEF, 0xBE, 0xAD, 0xDE
                              , 0x04, 0x01, 0x00, 0x45
                              , 0x05, 0x03, 0x00, 'X', 'Y', 'Z'
-                             , 0x06, 0x05, 0x00, 'h', 'e', 'l', 'l', 'o'
+                             , 0x06, 0x05, 0x00, 0x11, 0x22, 0x00, 0x00, 0x33
                              , 0x07, 0x01, 0x00, 0x01};
   
   EXPECT_TRUE(ArraysMatch(expected, buf_));
