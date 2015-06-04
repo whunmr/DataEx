@@ -150,7 +150,7 @@ struct _NAME : Serializable {            \
   _NAME() {                              \
     fields_infos_ = &kFieldsInfos[0]; 
 
-#define __INIT_FIELD_IN_CONSTRUCTOR(_TAG, _FIELD_NAME, ...) _FIELD_NAME = __VA_ARGS__();
+#define __INIT_FIELD_IN_CONSTRUCTOR(_TAG, _FIELD_NAME, ...) /*_FIELD_NAME = __VA_ARGS__();*/
 
 #define __DECLARE_FIELD(_TAG, _FIELD_NAME, ...) \
   __VA_ARGS__ _FIELD_NAME;                      \
@@ -214,7 +214,7 @@ DEF_DATA(SingleStringData);
 /*----------------------------------------------------------------------------*/
 #define __FIELDS_OF_DataX(_)  \
   _(1, a, int)                \
-  _(2, b, int)
+  _(2, b, unsigned int)
 
 DEF_DATA(DataX);
 
@@ -459,12 +459,12 @@ TODO:
 - enum {__field_count = 2};
   uint8_t fields_presence_[__field_count / 8 + 1];
 - types
-bool
-string
-int32
+-bool
+-string
+-int32
+-uint32
 double
 float
 int64
-uint32
 uint64
 ------------------------------------------------------------------------------*/
