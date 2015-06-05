@@ -88,9 +88,8 @@ struct Encoder<dataex::array<T,N>, typename enable_if<__is_base_of(Serializable,
 
 template<typename T>
 struct Encoder<T, typename enable_if<__is_base_of(Serializable, T)>::type> {
-  static void encode(const void* instance, size_t field_offset, void*& p) {
-    Serializable& nested = *(Serializable*)( ((uint8_t*)instance) + field_offset );
-    p = __encode(nested, p);
+  inline static void encode(const void* instance, size_t field_offset, void*& p) {
+    p = __encode(*(Serializable*)( ((uint8_t*)instance) + field_offset ), p);
   }
 };
 
