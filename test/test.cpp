@@ -88,7 +88,7 @@ struct Encoder<dataex::array<T,N>, typename enable_if<__is_base_of(Serializable,
 
 template<typename T>
 struct Encoder<T, typename enable_if<__is_base_of(Serializable, T)>::type> {
-  inline static void encode(const void* instance, size_t field_offset, void*& p) {
+  static void encode(const void* instance, size_t field_offset, void*& p) {
     p = __encode(*(Serializable*)( ((uint8_t*)instance) + field_offset ), p);
   }
 };
@@ -187,17 +187,17 @@ struct _NAME : Serializable {            \
 
 #define __INIT_FIELD_IN_CONSTRUCTOR(_TAG, _FIELD_NAME, ...) /*_FIELD_NAME = __VA_ARGS__();*/
 
-#define __DECLARE_FIELD(_TAG, _FIELD_NAME, ...) \
+#define __DECLARE_FIELD(_FIELD_NAME, ...) \
   __VA_ARGS__ _FIELD_NAME;                      \
-  enum {__tag_##_FIELD_NAME = _TAG};
+  enum {__tag_##_FIELD_NAME = __COUNTER__ - __counter_start};
 
-#define __FIELD_ENCODE_SIZE(_TAG, _FIELD_NAME, ...)  \
+#define __FIELD_ENCODE_SIZE(_FIELD_NAME, ...)  \
   + sizeof(tag_t) + sizeof(len_t) + EncodeSizeGetter<__VA_ARGS__>::size(&(instance->_FIELD_NAME))
 
-#define __DEFINE_FIELD_INFO(_TAG, _FIELD_NAME, ...) \
+#define __DEFINE_FIELD_INFO(_FIELD_NAME, ...) \
     { &EncodeSizeGetter<__VA_ARGS__>::size          \
     , offsetof(DataType, _FIELD_NAME)               \
-    , _TAG                                          \
+    , __tag_##_FIELD_NAME                           \
     , &Encoder<__VA_ARGS__>::encode                 \
     , &Decoder<__VA_ARGS__>::decode }, 
 
@@ -221,6 +221,7 @@ namespace __NS_##_NAME {                                \
 DECLARE_DATA_CLASS_BEGIN(_NAME)                                   \
   EXPAND_FIELDS(_M1/*__INIT_FIELD_IN_CONSTRUCTOR*/)               \
   }                                                               \
+  enum { __counter_start = __COUNTER__ };                         \
   EXPAND_FIELDS(_M2/*__DECLARE_FIELD*/)                           \
   static size_t size(const void* p) {                             \
      const _NAME* instance = (const _NAME*)p;                     \
@@ -236,38 +237,38 @@ using __NS_##_NAME::_NAME;
 
 /*----------------------------------------------------------------------------*/
 #define __FIELDS_OF_SingleFieldData(_)  \
-  _(1, a, int)
+  _(a, int)
 
 DEF_DATA(SingleFieldData);
 
 /*----------------------------------------------------------------------------*/
 #define __FIELDS_OF_SingleStringData(_)  \
-  _(1, a, string)
+  _(a, string)
 
 DEF_DATA(SingleStringData);
 
 /*----------------------------------------------------------------------------*/
 #define __FIELDS_OF_DataX(_)  \
-  _(1, a, int)                \
-  _(2, b, unsigned int)
+  _(a, int)                   \
+  _(b, unsigned int)
 
 DEF_DATA(DataX);
 
 /*----------------------------------------------------------------------------*/
 #define __FIELDS_OF_DataXArray(_)  \
-  _(1, a, __array(DataX, 2))       \
+  _(a, __array(DataX, 2))          \
 
 DEF_DATA(DataXArray);
 
 /*----------------------------------------------------------------------------*/
-#define __FIELDS_OF_DataWithNested(_)    \
-  _(1,  a, int  )                        \
-  _(2,  x, DataX)                        \
-  _(3,  b, int  )                        \
-  _(4,  c, char )                        \
-  _(5,  d, __array(char, 3))             \
-  _(6,  e, string)                       \
-  _(7,  f, bool)
+#define __FIELDS_OF_DataWithNested(_) \
+  _(a, int  )                         \
+  _(x, DataX)                         \
+  _(b, int  )                         \
+  _(c, char )                         \
+  _(d, __array(char, 3))              \
+  _(e, string)                        \
+  _(f, bool)
 
 DEF_DATA(DataWithNested);
 
