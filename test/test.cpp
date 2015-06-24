@@ -89,9 +89,13 @@ struct EncodeSizeGetter<string, isSerializable, isArray> {
 };
 
 /*----------------------------------------------------------------------------*/
-void* __do_encode(const Serializable& d, FieldInfo[] field_info, void* p);
-void* __decode(Serializable& d, void* p, size_t total_len);
-size_t __get_size(const Serializable& d);
+void* __do_encode(const Serializable& d, FieldInfo* field_info, void* p);
+void* __do_decode(Serializable& d, FieldInfo* field_info, void* p, size_t total_len);
+size_t __do_get_size(const Serializable& d, FieldInfo* field_info);
+
+#define __encode(d, p)  __do_encode(d, typeof(d)::kFieldsInfos, p)
+#define __decode(d, p, total_len) __do_decode(d, typeof(d)::kFieldsInfos, p, total_len)
+#define __get_size(d)  __do_get_size(d, typeof(d)::kFieldsInfos)
 
 template<typename T, bool isSerializable, bool isArray>
 struct Encoder {
@@ -104,7 +108,7 @@ struct Encoder {
 template<typename T>
 struct Encoder<T, true, false> {
   static void encode(const void* value, void*& p) {
-    p = __encode(*(Serializable*)value, p);
+    p = __encode(*(T*)value, p);
   }
 };
 
@@ -168,7 +172,7 @@ struct Decoder<string, isSerializable, isArray> {
 };
 
 /*----------------------------------------------------------------------------*/
-void* __do_encode(const Serializable& d, FieldInfo[] field_infos, void* p) {
+void* __do_encode(const Serializable& d, FieldInfo* field_infos, void* p) {
   for (const FieldInfo* fi = fields_infos[0]; fi->tag_ != kTagInvalid; ++fi) {
     *((tag_t*)p) = fi->tag_;
     p = ((tag_t*)p)+1;
@@ -183,15 +187,10 @@ void* __do_encode(const Serializable& d, FieldInfo[] field_infos, void* p) {
   return p;
 }
 
-template<typename T>
-inline void* __encode(const T& d, void*p) {
-  __do_encode(d, T::kFieldsInfos, p);
-}
-
 //TODO: return NULL when decode failed
-void* __do_decode(Serializable& d, void* p, size_t total_len) {
+void* __do_decode(Serializable& d, FieldInfo* field_infos, void* p, size_t total_len) {
   size_t field_count = 0;
-  for (const FieldInfo* fi = &d.fields_infos_[0]; fi->tag_ != kTagInvalid; ++fi) {
+  for (const FieldInfo* fi = fields_infos[0]; fi->tag_ != kTagInvalid; ++fi) {
     field_count++;
   }
 
@@ -201,7 +200,7 @@ void* __do_decode(Serializable& d, void* p, size_t total_len) {
     len_t len = *(len_t*)p; p = ((len_t*)p)+1;
     
     if ( t > 0 && t <= field_count ) {
-      const FieldInfo* fi = &d.fields_infos_[t - 1];
+      const FieldInfo* fi = fields_infos[t - 1];
       void* buf = (void*)(((uint8_t*)&d)+fi->offset_);
       (*fi->decode_func_)(buf, p, len);
     } else {
@@ -211,22 +210,15 @@ void* __do_decode(Serializable& d, void* p, size_t total_len) {
   return p;
 }
 
-template<typename T>
-inline void* __decode(const T& d, void*p) {
-  __do_encode(d, T::kFieldsInfos, p);
-}
-
-size_t __do_get_size(const Serializable& d) {
+size_t __do_get_size(const Serializable& d, FieldInfo* field_infos) {
   size_t s = 0;
-  for (const FieldInfo* fi = &d.fields_infos_[0]; fi->tag_ != kTagInvalid; ++fi) {
+  for (const FieldInfo* fi = fields_infos[0]; fi->tag_ != kTagInvalid; ++fi) {
     s += sizeof(tag_t) + sizeof(len_t);
     void* value = (void*)(((uint8_t*)&d)+fi->offset_);
     s += fi->field_encoded_size_func_(value);
   }
   return s;
 }
-
-
 
 /*----------------------------------------------------------------------------*/
 #define FuncSelector(Struct, Func, ...) Struct< __VA_ARGS__                                                                 \
