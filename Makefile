@@ -13,7 +13,7 @@ TEST_OBJS=$(subst .cpp,.o,$(TEST_SRCS))
 
 all: $(TEST_OBJS)
 #g++ -I/usr/include -o msgflow src/msgflow.cpp -lpthread -lpcrecpp -lboost_regex
-	@g++ $(CPPFLAGS) $(LDFLAGS) -g -o main $^ $(LDLIBS) && ./main --gtest_filter=* && echo "" && echo "" && echo ""
+	@g++ $(CPPFLAGS) $(LDFLAGS) -g -o main $^ $(LDLIBS) && ./main --gtest_filter="*" && echo "" && echo "" && echo ""
 
 clean:
 	rm -rdf $(OBJS) main main.dSYM test/*.o msgflow
