@@ -236,13 +236,13 @@ struct _NAME : Serializable {            \
   __VA_ARGS__ _FIELD_NAME;                                   \
   enum {__tag_##_FIELD_NAME = __COUNTER__ - __counter_start};
 
-#define __DEFINE_FIELD_INFO(_FIELD_NAME, ...)        \
-  {                                                  \
-     &FuncSelector(EncodeSizeGetter, size, __VA_ARGS__)           \
-     , offsetof(DataType, _FIELD_NAME)               \
-     , __tag_##_FIELD_NAME                           \
-     , &FuncSelector(Encoder, encode, __VA_ARGS__)   \
-     , &FuncSelector(Decoder, decode, __VA_ARGS__)   \
+#define __DEFINE_FIELD_INFO(_FIELD_NAME, ...)                \
+  {                                                          \
+     &FuncSelector(EncodeSizeGetter, size, __VA_ARGS__)      \
+     , offsetof(DataType, _FIELD_NAME)                       \
+     , __tag_##_FIELD_NAME                                   \
+     , &FuncSelector(Encoder, encode, __VA_ARGS__)           \
+     , &FuncSelector(Decoder, decode, __VA_ARGS__)           \
   }, 
 
 #define DECLARE_DATA_CLASS(_NAME)                    \
@@ -587,5 +587,7 @@ float
 int64
 uint64
 
-- all kinds of compatiblity tests. new old tests.  
+- all kinds of compatiblity tests. new old tests.
+- 	@g++ $(CPPFLAGS) $(LDFLAGS) -g -o main $^ $(LDLIBS) && ./main --gtest_filter="*" && echo "" && echo "" && echo ""
+- ./test/test.rb ./main | grep -v testing | grep -v typeinfo | grep -v TestBody | grep -v vtable | grep -v t_
 ------------------------------------------------------------------------------*/
