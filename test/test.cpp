@@ -218,6 +218,13 @@ size_t __get_size(const Serializable& d) {
 }
 
 /*----------------------------------------------------------------------------*/
+#define FuncSelector(Struct, Func, ...) Struct< __VA_ARGS__                                                                 \
+                                              , __is_base( Serializable                                                     \
+                                                         , typename Elem< __VA_ARGS__                                       \
+                                                                        , __is_base(dataex::ArrayBase, __VA_ARGS__)>::type  \
+                                                         )                                                                  \
+                                              , __is_base(dataex::ArrayBase, __VA_ARGS__)>::Func
+
 #define DECLARE_DATA_CLASS_BEGIN(_NAME)  \
 namespace __NS_##_NAME {                 \
 struct _NAME : Serializable {            \
@@ -230,15 +237,14 @@ struct _NAME : Serializable {            \
   __VA_ARGS__ _FIELD_NAME;                      \
   enum {__tag_##_FIELD_NAME = __COUNTER__ - __counter_start};
 
-#define __DEFINE_FIELD_INFO(_FIELD_NAME, ...) \
-    { &__S< __VA_ARGS__, __is_base(Serializable, typename Elem<__VA_ARGS__, __is_base(dataex::ArrayBase, __VA_ARGS__)>::type) \
-                       , __is_base(dataex::ArrayBase, __VA_ARGS__)>::size \
-    , offsetof(DataType, _FIELD_NAME)               \
-    , __tag_##_FIELD_NAME                           \
-    , &Encoder< __VA_ARGS__, __is_base(Serializable, typename Elem<__VA_ARGS__, __is_base(dataex::ArrayBase, __VA_ARGS__)>::type) \
-              , __is_base(dataex::ArrayBase, __VA_ARGS__)>::encode                    \
-    , &Decoder< __VA_ARGS__, __is_base(Serializable, typename Elem<__VA_ARGS__, __is_base(dataex::ArrayBase, __VA_ARGS__)>::type)  \
-              , __is_base(dataex::ArrayBase, __VA_ARGS__)>::decode }, 
+#define __DEFINE_FIELD_INFO(_FIELD_NAME, ...)          \
+    {                                                  \
+       &FuncSelector(__S, size, __VA_ARGS__)           \
+       , offsetof(DataType, _FIELD_NAME)               \
+       , __tag_##_FIELD_NAME                           \
+       , &FuncSelector(Encoder, encode, __VA_ARGS__)   \
+       , &FuncSelector(Decoder, decode, __VA_ARGS__)   \
+    }, 
 
 #define DECLARE_DATA_CLASS(_NAME)                  \
 DECLARE_DATA_CLASS_1( __FIELDS_OF_##_NAME          \
