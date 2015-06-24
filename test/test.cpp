@@ -238,11 +238,11 @@ struct _NAME : Serializable {            \
 
 #define __INIT_FIELD_IN_CONSTRUCTOR(_TAG, _FIELD_NAME, ...) /*_FIELD_NAME = __VA_ARGS__();*/
 
-#define __DECLARE_FIELD(_FIELD_NAME, ...)                    \
+#define __DECLARE_FIELD(_TAG, _FIELD_NAME, ...)              \
   __VA_ARGS__ _FIELD_NAME;                                   \
-  enum {__tag_##_FIELD_NAME = __COUNTER__ - __counter_start};
+  enum {__tag_##_FIELD_NAME = _TAG};
 
-#define __DEFINE_FIELD_INFO(_FIELD_NAME, ...)                \
+#define __DEFINE_FIELD_INFO(_TAG, _FIELD_NAME, ...)          \
   {                                                          \
      &FuncSelector(EncodeSizeGetter, size, __VA_ARGS__)      \
      , offsetof(DataType, _FIELD_NAME)                       \
