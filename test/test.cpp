@@ -36,7 +36,7 @@ template <class B, class D> struct IsBaseOf {
 
 /*----------------------------------------------------------------------------*/
 
-typedef void (*EncodeFunc)(const void* instance, size_t field_offset, void*& p);
+typedef void (*EncodeFunc)(const void* value, void*& p);
 typedef void (*DecodeFunc)(void* instance, size_t field_offset, void*& p, size_t len);
 typedef size_t (*GetEncodeSizeFunc)(const void* t);
 
@@ -65,36 +65,34 @@ struct Elem<T, true> {
 
 ////////////////////////////////////////////////////////////////////////////////
 template<typename T, bool isSerializable, bool isArray>
-struct EncodeSizeGetter {
+struct __S {
   static size_t size(const void* t) {
     return sizeof(T);
   }
 };
 
-//typename enable_if<__is_base_of(Serializable, T)>::type
 template<typename T>
-struct EncodeSizeGetter<T, true, false> {
+struct __S<T, true, false> {
   static size_t size(const void* t) {
     return __get_size(*((const T*)t));
   }
 };
 
-//array with serializable elements
 template<typename T>
-struct EncodeSizeGetter<T, true, true> {
+struct __S<T, true, true> {
   static size_t size(const void* t) {
     size_t s = 0;
     const typename Elem<T, true>::type* pt = (const typename Elem<T, true>::type*)t;
     for (int i = 0; i < T::capacity; ++i) {
       s += 2; /*size of len_t*/
-      s += EncodeSizeGetter<typename Elem<T, true>::type, true, false>::size(&pt[i]);
+      s += __S<typename Elem<T, true>::type, true, false>::size(&pt[i]);
     }
     return s;
   }
 };
 
 template<bool isSerializable, bool isArray>
-struct EncodeSizeGetter<string, isSerializable, isArray> {
+struct __S<string, isSerializable, isArray> {
   static size_t size(const void* t) {
     return ((string*)t)->size();
   }
@@ -108,26 +106,25 @@ size_t __get_size(const Serializable& d);
 
 template<typename T, bool isSerializable, bool isArray>
 struct Encoder {
-  static void encode(const void* instance, size_t field_offset, void*& p) {
-    *((T*)p) = *(T*)( ((uint8_t*)instance) + field_offset );
+  static void encode(const void* value, void*& p) {
+    *(((T*)p)) = *(T*)value;
     p = ((T*)p)+1;
   }
 };
 
 template<typename T>
 struct Encoder<T, true, false> {
-  static void encode(const void* instance, size_t field_offset, void*& p) {
-    p = __encode(*(Serializable*)( ((uint8_t*)instance) + field_offset ), p);
+  static void encode(const void* value, void*& p) {
+    p = __encode(*(Serializable*)value, p);
   }
 };
 
 template<typename T>
 struct Encoder<T, true, true> {
-  static void encode(const void* instance, size_t field_offset, void*& p) {
-    typename Elem<T, true>::type* pt = (typename Elem<T, true>::type*)( ((uint8_t*)instance) + field_offset );
-    
+  static void encode(const void* value, void*& p) {
+    typename Elem<T, true>::type* pt = (typename Elem<T, true>::type*)value;
     for (int i = 0; i < T::capacity; ++i) {
-      *((len_t*)p) = EncodeSizeGetter<typename Elem<T, true>::type, true, false>::size(&pt[i]);
+      *((len_t*)p) = __S<typename Elem<T, true>::type, true, false>::size(&pt[i]);
       p = ((len_t*)p)+1;
       p = __encode(pt[i], p);
     }
@@ -136,8 +133,8 @@ struct Encoder<T, true, true> {
 
 template<bool isSerializable, bool isArray>
 struct Encoder<string, isSerializable, isArray> {
-  static void encode(const void* instance, size_t field_offset, void*& p) {
-    string& str = *(string*)( ((uint8_t*)instance) + field_offset );
+  static void encode(const void* value, void*& p) {
+    string& str = *(string*)( value );
     memcpy(p, str.c_str(), str.size());
     p = ((uint8_t*)p) + str.size();
   }
@@ -193,7 +190,7 @@ void* __encode(const Serializable& d, void* p) {
     *((len_t*)p) = fi->field_encoded_size_func_(value);
     p = ((len_t*)p)+1;
 
-    (*fi->encode_func_)(&d, fi->offset_, p);
+    (*fi->encode_func_)(value, p);
   }
   
   return p;
@@ -245,7 +242,7 @@ struct _NAME : Serializable {            \
   enum {__tag_##_FIELD_NAME = __COUNTER__ - __counter_start};
 
 #define __DEFINE_FIELD_INFO(_FIELD_NAME, ...) \
-    { &EncodeSizeGetter< __VA_ARGS__, __is_base_of(Serializable, typename Elem<__VA_ARGS__, __is_base_of(dataex::ArrayBase, __VA_ARGS__)>::type) \
+    { &__S< __VA_ARGS__, __is_base_of(Serializable, typename Elem<__VA_ARGS__, __is_base_of(dataex::ArrayBase, __VA_ARGS__)>::type) \
                        , __is_base_of(dataex::ArrayBase, __VA_ARGS__)>::size \
     , offsetof(DataType, _FIELD_NAME)               \
     , __tag_##_FIELD_NAME                           \
@@ -325,7 +322,7 @@ DEF_DATA(DataWithNested);
 #define ENCODE_SIZE_TL (ENCODE_SIZE_T + sizeof(len_t))
 #define ENCODE_SIZE_TLV(value, ...) \
 (ENCODE_SIZE_TL                     \
-   + EncodeSizeGetter< __VA_ARGS__, __is_base_of(Serializable, typename Elem<__VA_ARGS__, __is_base_of(dataex::ArrayBase, __VA_ARGS__)>::type) \
+   + __S< __VA_ARGS__, __is_base_of(Serializable, typename Elem<__VA_ARGS__, __is_base_of(dataex::ArrayBase, __VA_ARGS__)>::type) \
                      , __is_base_of(dataex::ArrayBase, __VA_ARGS__)>::size(&value))
 
 /*----------------------------------------------------------------------------*/
