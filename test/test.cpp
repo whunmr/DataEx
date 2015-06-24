@@ -233,8 +233,8 @@ struct _NAME : Serializable {            \
 
 #define __INIT_FIELD_IN_CONSTRUCTOR(_TAG, _FIELD_NAME, ...) /*_FIELD_NAME = __VA_ARGS__();*/
 
-#define __DECLARE_FIELD(_FIELD_NAME, ...) \
-  __VA_ARGS__ _FIELD_NAME;                      \
+#define __DECLARE_FIELD(_FIELD_NAME, ...)                    \
+  __VA_ARGS__ _FIELD_NAME;                                   \
   enum {__tag_##_FIELD_NAME = __COUNTER__ - __counter_start};
 
 #define __DEFINE_FIELD_INFO(_FIELD_NAME, ...)        \
@@ -246,10 +246,10 @@ struct _NAME : Serializable {            \
      , &FuncSelector(Decoder, decode, __VA_ARGS__)   \
   }, 
 
-#define DECLARE_DATA_CLASS(_NAME)                  \
-DECLARE_DATA_CLASS_1( __FIELDS_OF_##_NAME          \
-                , _NAME                            \
-                , __INIT_FIELD_IN_CONSTRUCTOR      \
+#define DECLARE_DATA_CLASS(_NAME)                    \
+DECLARE_DATA_CLASS_1( __FIELDS_OF_##_NAME            \
+                , _NAME                              \
+                , __INIT_FIELD_IN_CONSTRUCTOR        \
                 , __DECLARE_FIELD);
 
 #define DEFINE_DATA_CLASS(_NAME) DEFINE_DATA_CLASS_1(__FIELDS_OF_##_NAME, _NAME, __DEFINE_FIELD_INFO)
