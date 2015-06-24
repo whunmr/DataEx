@@ -235,7 +235,6 @@ size_t __do_get_size(const Serializable& d, const FieldInfo& field_infos) {
 namespace __NS_##_NAME {                 \
 struct _NAME : Serializable {            \
   _NAME() {
-    /*fields_infos_ = &kFieldsInfos[0];*/
 
 #define __INIT_FIELD_IN_CONSTRUCTOR(_TAG, _FIELD_NAME, ...) /*_FIELD_NAME = __VA_ARGS__();*/
 
@@ -283,38 +282,38 @@ using __NS_##_NAME::_NAME;
 
 /*----------------------------------------------------------------------------*/
 #define __FIELDS_OF_SingleFieldData(_)  \
-  _(a, int)
+  _(1, a, int)
 
 DEF_DATA(SingleFieldData);
 
 /*----------------------------------------------------------------------------*/
 #define __FIELDS_OF_SingleStringData(_)  \
-  _(a, string)
+  _(1, a, string)
 
 DEF_DATA(SingleStringData);
 
 /*----------------------------------------------------------------------------*/
 #define __FIELDS_OF_DataX(_)  \
-  _(a, int)                   \
-  _(b, unsigned int)
+  _(1, a, int)                \
+  _(2, b, unsigned int)
 
 DEF_DATA(DataX);
 
 /*----------------------------------------------------------------------------*/
 #define __FIELDS_OF_DataXArray(_)  \
-  _(a, __array(DataX, 2))          \
+  _(1, a, __array(DataX, 2))       \
 
 DEF_DATA(DataXArray);
 
 /*----------------------------------------------------------------------------*/
-#define __FIELDS_OF_DataWithNested(_) \
-  _(a, int  )                         \
-  _(x, DataX)                         \
-  _(b, int  )                         \
-  _(c, char )                         \
-  _(d, __array(char, 3))              \
-  _(e, string)                        \
-  _(f, bool)
+#define __FIELDS_OF_DataWithNested(_)  \
+  _(1, a, int  )                       \
+  _(2, x, DataX)                       \
+  _(3, b, int  )                       \
+  _(4, c, char )                       \
+  _(5, d, __array(char, 3))            \
+  _(6, e, string)                      \
+  _(7, f, bool)
 
 DEF_DATA(DataWithNested);
 
