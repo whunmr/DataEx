@@ -11,6 +11,31 @@ typedef uint8_t  tag_t;
 static const tag_t kTagInvalid = 0;
 
 /*----------------------------------------------------------------------------*/
+template <bool>
+struct enable_if {
+};
+
+template <>
+struct enable_if<true> {
+  typedef void type;
+};
+
+/*----------------------------------------------------------------------------*/
+template <class B, class D> struct IsBaseOf {
+  typedef char (&Small)[1];
+  typedef char (&Big)[2];
+  
+  static Small Test(B);
+  static Big Test(...);
+  static D MakeD();
+
+  static const bool value = sizeof(Test(MakeD())) == sizeof(Small);  
+};
+
+#define __is_base_of(Base, ...) IsBaseOf<const Base*, const __VA_ARGS__ *>::value
+
+/*----------------------------------------------------------------------------*/
+
 typedef void (*EncodeFunc)(const void* instance, size_t field_offset, void*& p);
 typedef void (*DecodeFunc)(void* instance, size_t field_offset, void*& p, size_t len);
 typedef size_t (*GetEncodeSizeFunc)(const void* t);
@@ -27,6 +52,67 @@ struct Serializable {
   const FieldInfo *fields_infos_;
 };
 
+/*
+template<typename T, bool isSerializable = false>
+struct TypeTrait {
+  typedef T type;
+};
+
+template<typename T>
+struct TypeTrait<T, true>
+*/
+
+template<typename T, bool isArray = false>
+struct Elem {
+  typedef T type;
+};
+
+template<typename T>
+struct Elem<T, true> {
+  typedef typename T::element_type type;
+};
+
+////////////////////////////////////////////////////////////////////////////////
+//EncodeSizeGetter<__VA_ARGS__, __is_base_of(Serializable, Elem<__VA_ARGS__>::type),  __is_base_of(ArrayBase, __VA_ARGS__)>::size
+template<typename T, bool isSerializable, bool isArray>
+struct EncodeSizeGetter {
+  static size_t size(const void* t) {
+    return sizeof(T);
+  }
+};
+
+//typename enable_if<__is_base_of(Serializable, T)>::type
+template<typename T>
+struct EncodeSizeGetter<T, true, false> {
+  static size_t size(const void* t) {
+    return T::size(t);
+  }
+};
+
+//array with serializable elements
+template<typename T>
+struct EncodeSizeGetter<T, true, true> {
+  static size_t size(const void* t) {
+    size_t s = 0;
+    const typename Elem<T, true>::type* pt = (const typename Elem<T, true>::type*)t;
+    for (int i = 0; i < T::capacity; ++i) {
+      s += 2; /*size of len_t*/
+      s += EncodeSizeGetter<typename Elem<T, true>::type, true, false>::size(&pt[i]);
+    }
+    return s;
+  }
+};
+
+template<bool isSerializable, bool isArray>
+struct EncodeSizeGetter<string, isSerializable, isArray> {
+  static size_t size(const void* t) {
+    return ((string*)t)->size();
+  }
+};
+
+
+#if 0
+////////////////////////////////////////////////////////////////////////////////
 template<typename T, class Enable = void>
 struct EncodeSizeGetter {
   static size_t size(const void* t) {
@@ -60,11 +146,50 @@ struct EncodeSizeGetter<string> {
     return ((string*)t)->size();
   }
 };
-
+#endif
 /*----------------------------------------------------------------------------*/
 void* __encode(const Serializable& d, void* p);
 void* __decode(Serializable& d, void* p, size_t total_len);
 
+template<typename T, bool isSerializable, bool isArray>
+struct Encoder {
+  static void encode(const void* instance, size_t field_offset, void*& p) {
+    *((T*)p) = *(T*)( ((uint8_t*)instance) + field_offset );
+    p = ((T*)p)+1;
+  }
+};
+
+template<typename T>
+struct Encoder<T, true, false> {
+  static void encode(const void* instance, size_t field_offset, void*& p) {
+    p = __encode(*(Serializable*)( ((uint8_t*)instance) + field_offset ), p);
+  }
+};
+
+template<typename T>
+struct Encoder<T, true, true> {
+  static void encode(const void* instance, size_t field_offset, void*& p) {
+    typename Elem<T, true>::type* pt = (typename Elem<T, true>::type*)( ((uint8_t*)instance) + field_offset );
+    
+    for (int i = 0; i < T::capacity; ++i) {
+      *((len_t*)p) = EncodeSizeGetter<typename Elem<T, true>::type, true, false>::size(&pt[i]);
+      p = ((len_t*)p)+1;
+      p = __encode(pt[i], p);
+    }
+  }
+};
+
+template<bool isSerializable, bool isArray>
+struct Encoder<string, isSerializable, isArray> {
+  static void encode(const void* instance, size_t field_offset, void*& p) {
+    string& str = *(string*)( ((uint8_t*)instance) + field_offset );
+    memcpy(p, str.c_str(), str.size());
+    p = ((uint8_t*)p) + str.size();
+  }
+};
+
+
+#if 0
 template<typename T, class Enable = void>
 struct Encoder {
   static void encode(const void* instance, size_t field_offset, void*& p) {
@@ -101,8 +226,47 @@ struct Encoder<string> {
     p = ((uint8_t*)p) + str.size();
   }
 };
-
+#endif
 /*----------------------------------------------------------------------------*/
+
+template<typename T, bool isSerializable, bool isArray>
+struct Decoder {
+  static void decode(void* instance, size_t field_offset, void*& p, size_t len) {
+    *(T*)(((uint8_t*)instance)+field_offset) = *((T*)p);
+    p = ((T*)p)+1;
+  }
+};
+
+template<typename T>
+struct Decoder<T, true, true> {
+  static void decode(void* instance, size_t field_offset, void*& p, size_t total_len) {
+    typename Elem<T, true>::type* dest = (typename Elem<T, true>::type*)( ((uint8_t*)instance) + field_offset );
+    for (int i = 0; i < T::capacity; ++i) {
+      //TODO: check dest[i] not exceeds total_len.
+      len_t len  = *(len_t*)p; p = ((len_t*)p)+1;
+      p = __decode(dest[i], p, len); 
+    }
+  }
+};
+
+template<typename T>
+struct Decoder<T, true, false> {
+  static void decode(void* instance, size_t field_offset, void*& p, size_t len) {
+    Serializable& nested = *(Serializable*)( ((uint8_t*)instance) + field_offset );
+    p = __decode(nested, p, len);
+  }
+};
+
+template<bool isSerializable, bool isArray>
+struct Decoder<string, isSerializable, isArray> {
+  static void decode(void* instance, size_t field_offset, void*& p, size_t len) {
+    string& str = *(string*)( ((uint8_t*)instance) + field_offset );
+    str = string((const char*)p, len);
+    p = ((uint8_t*)p)+len;
+  }
+};
+
+#if 0
 template<typename T, class Enable = void>
 struct Decoder {
   static void decode(void* instance, size_t field_offset, void*& p, size_t len) {
@@ -139,7 +303,7 @@ struct Decoder<string> {
     p = ((uint8_t*)p)+len;
   }
 };
-
+#endif
 /*----------------------------------------------------------------------------*/
 void* __encode(const Serializable& d, void* p) {
   for (const FieldInfo* fi = &d.fields_infos_[0]; fi->tag_ != kTagInvalid; ++fi) {
@@ -192,14 +356,19 @@ struct _NAME : Serializable {            \
   enum {__tag_##_FIELD_NAME = __COUNTER__ - __counter_start};
 
 #define __FIELD_ENCODE_SIZE(_FIELD_NAME, ...)  \
-  + sizeof(tag_t) + sizeof(len_t) + EncodeSizeGetter<__VA_ARGS__>::size(&(instance->_FIELD_NAME))
+  + sizeof(tag_t) + sizeof(len_t)              \
+  + EncodeSizeGetter< __VA_ARGS__, __is_base_of(Serializable, typename Elem<__VA_ARGS__, __is_base_of(dataex::ArrayBase, __VA_ARGS__)>::type) \
+                    , __is_base_of(dataex::ArrayBase, __VA_ARGS__)>::size(&(instance->_FIELD_NAME))
 
 #define __DEFINE_FIELD_INFO(_FIELD_NAME, ...) \
-    { &EncodeSizeGetter<__VA_ARGS__>::size          \
+    { &EncodeSizeGetter< __VA_ARGS__, __is_base_of(Serializable, typename Elem<__VA_ARGS__, __is_base_of(dataex::ArrayBase, __VA_ARGS__)>::type) \
+                       , __is_base_of(dataex::ArrayBase, __VA_ARGS__)>::size \
     , offsetof(DataType, _FIELD_NAME)               \
     , __tag_##_FIELD_NAME                           \
-    , &Encoder<__VA_ARGS__>::encode                 \
-    , &Decoder<__VA_ARGS__>::decode }, 
+    , &Encoder< __VA_ARGS__, __is_base_of(Serializable, typename Elem<__VA_ARGS__, __is_base_of(dataex::ArrayBase, __VA_ARGS__)>::type) \
+              , __is_base_of(dataex::ArrayBase, __VA_ARGS__)>::encode                    \
+    , &Decoder< __VA_ARGS__, __is_base_of(Serializable, typename Elem<__VA_ARGS__, __is_base_of(dataex::ArrayBase, __VA_ARGS__)>::type)  \
+              , __is_base_of(dataex::ArrayBase, __VA_ARGS__)>::decode }, 
 
 #define DECLARE_DATA_CLASS(_NAME)                  \
 DECLARE_DATA_CLASS_1( __FIELDS_OF_##_NAME          \
@@ -275,7 +444,10 @@ DEF_DATA(DataWithNested);
 /*----------------------------------------------------------------------------*/
 #define ENCODE_SIZE_T (sizeof(tag_t))
 #define ENCODE_SIZE_TL (ENCODE_SIZE_T + sizeof(len_t))
-#define ENCODE_SIZE_TLV(value, ...) (ENCODE_SIZE_TL + EncodeSizeGetter<__VA_ARGS__>::size(&value))
+#define ENCODE_SIZE_TLV(value, ...) \
+(ENCODE_SIZE_TL                     \
+   + EncodeSizeGetter< __VA_ARGS__, __is_base_of(Serializable, typename Elem<__VA_ARGS__, __is_base_of(dataex::ArrayBase, __VA_ARGS__)>::type) \
+                     , __is_base_of(dataex::ArrayBase, __VA_ARGS__)>::size(&value))
 
 /*----------------------------------------------------------------------------*/
 struct t : public ::testing::Test {
@@ -371,7 +543,7 @@ TEST_F(t, DataX_should_able_to_encode_normal_struct) {
 }
 
 /*----------------------------------------------------------------------------*/
-char DataXArray_expected[] = { 0x01, 0x1c, 0x00  /* T and L of field*/
+char DataXArray_expected[] = { 0x01, 0x20, 0x00  /* T and L of field*/
                              , 0x0E, 0x00        /* L for a[0] */
                              , 0x01, 0x04, 0x00, 0x33, 0x22, 0x11, 0x00
                              , 0x02, 0x04, 0x00, 0x68, 0x57, 0x24, 0x13
@@ -549,3 +721,6 @@ uint64
   using EncodeSizeGetter instead.
 - all kinds of compatiblity tests. new old tests.  
 ------------------------------------------------------------------------------*/
+
+
+
