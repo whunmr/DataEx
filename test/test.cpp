@@ -582,9 +582,5 @@ float
 int64
 uint64
 
-- extract to common getsize method.  
 - all kinds of compatiblity tests. new old tests.  
 ------------------------------------------------------------------------------*/
-
-
-
