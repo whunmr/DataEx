@@ -39,7 +39,7 @@ struct FieldInfo {
 };
 
 struct Serializable {
-  const FieldInfo *fields_infos_;
+  //const FieldInfo *fields_infos_;
 };
 
 ////////////////////////////////////////////////////////////////////////////////
@@ -89,7 +89,7 @@ struct EncodeSizeGetter<string, isSerializable, isArray> {
 };
 
 /*----------------------------------------------------------------------------*/
-void* __encode(const Serializable& d, void* p);
+void* __do_encode(const Serializable& d, FieldInfo[] field_info, void* p);
 void* __decode(Serializable& d, void* p, size_t total_len);
 size_t __get_size(const Serializable& d);
 
@@ -168,8 +168,8 @@ struct Decoder<string, isSerializable, isArray> {
 };
 
 /*----------------------------------------------------------------------------*/
-void* __encode(const Serializable& d, void* p) {
-  for (const FieldInfo* fi = &d.fields_infos_[0]; fi->tag_ != kTagInvalid; ++fi) {
+void* __do_encode(const Serializable& d, FieldInfo[] field_infos, void* p) {
+  for (const FieldInfo* fi = fields_infos[0]; fi->tag_ != kTagInvalid; ++fi) {
     *((tag_t*)p) = fi->tag_;
     p = ((tag_t*)p)+1;
 
@@ -183,8 +183,13 @@ void* __encode(const Serializable& d, void* p) {
   return p;
 }
 
+template<typename T>
+inline void* __encode(const T& d, void*p) {
+  __do_encode(d, T::kFieldsInfos, p);
+}
+
 //TODO: return NULL when decode failed
-void* __decode(Serializable& d, void* p, size_t total_len) {
+void* __do_decode(Serializable& d, void* p, size_t total_len) {
   size_t field_count = 0;
   for (const FieldInfo* fi = &d.fields_infos_[0]; fi->tag_ != kTagInvalid; ++fi) {
     field_count++;
@@ -206,7 +211,12 @@ void* __decode(Serializable& d, void* p, size_t total_len) {
   return p;
 }
 
-size_t __get_size(const Serializable& d) {
+template<typename T>
+inline void* __decode(const T& d, void*p) {
+  __do_encode(d, T::kFieldsInfos, p);
+}
+
+size_t __do_get_size(const Serializable& d) {
   size_t s = 0;
   for (const FieldInfo* fi = &d.fields_infos_[0]; fi->tag_ != kTagInvalid; ++fi) {
     s += sizeof(tag_t) + sizeof(len_t);
@@ -215,6 +225,8 @@ size_t __get_size(const Serializable& d) {
   }
   return s;
 }
+
+
 
 /*----------------------------------------------------------------------------*/
 #define FuncSelector(Struct, Func, ...) Struct< __VA_ARGS__                                                                 \
@@ -227,8 +239,8 @@ size_t __get_size(const Serializable& d) {
 #define DECLARE_DATA_CLASS_BEGIN(_NAME)  \
 namespace __NS_##_NAME {                 \
 struct _NAME : Serializable {            \
-  _NAME() {                              \
-    fields_infos_ = &kFieldsInfos[0]; 
+  _NAME() {
+    /*fields_infos_ = &kFieldsInfos[0];*/
 
 #define __INIT_FIELD_IN_CONSTRUCTOR(_TAG, _FIELD_NAME, ...) /*_FIELD_NAME = __VA_ARGS__();*/
 
@@ -590,4 +602,6 @@ uint64
 - all kinds of compatiblity tests. new old tests.
 - 	@g++ $(CPPFLAGS) $(LDFLAGS) -g -o main $^ $(LDLIBS) && ./main --gtest_filter="*" && echo "" && echo "" && echo ""
 - ./test/test.rb ./main | grep -v testing | grep -v typeinfo | grep -v TestBody | grep -v vtable | grep -v t_
+-   static const FieldInfo *fields_infos_;  remove trailing _.
+- test value of &d.fields_infos_[0] before access.
 ------------------------------------------------------------------------------*/
