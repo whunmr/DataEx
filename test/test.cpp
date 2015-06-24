@@ -64,7 +64,7 @@ struct EncodeSizeGetter {
 template<typename T>
 struct EncodeSizeGetter<T, true, false> {
   static size_t size(const void* t) {
-    return __get_size(*((const T*)t));
+    return __do_get_size(*((const T*)t), T::kFieldsInfos[0]);
   }
 };
 
@@ -89,13 +89,13 @@ struct EncodeSizeGetter<string, isSerializable, isArray> {
 };
 
 /*----------------------------------------------------------------------------*/
-void* __do_encode(const Serializable& d, FieldInfo* field_info, void* p);
-void* __do_decode(Serializable& d, FieldInfo* field_info, void* p, size_t total_len);
-size_t __do_get_size(const Serializable& d, FieldInfo* field_info);
+void* __do_encode(const Serializable& d, const FieldInfo& field_info, void* p);
+void* __do_decode(Serializable& d, const FieldInfo& field_info, void* p, size_t total_len);
+size_t __do_get_size(const Serializable& d, const FieldInfo& field_info);
 
-#define __encode(d, p)  __do_encode(d, typeof(d)::kFieldsInfos, p)
-#define __decode(d, p, total_len) __do_decode(d, typeof(d)::kFieldsInfos, p, total_len)
-#define __get_size(d)  __do_get_size(d, typeof(d)::kFieldsInfos)
+#define __encode(Type, d, p)            __do_encode(d, Type::kFieldsInfos[0], p)
+#define __decode(Type, d, p, total_len) __do_decode(d, Type::kFieldsInfos[0], p, total_len)
+#define __get_size(Type, d)           __do_get_size(d, Type::kFieldsInfos[0])
 
 template<typename T, bool isSerializable, bool isArray>
 struct Encoder {
@@ -108,18 +108,19 @@ struct Encoder {
 template<typename T>
 struct Encoder<T, true, false> {
   static void encode(const void* value, void*& p) {
-    p = __encode(*(T*)value, p);
+    p = __do_encode(*(T*)value, T::kFieldsInfos[0], p);
   }
 };
 
 template<typename T>
 struct Encoder<T, true, true> {
   static void encode(const void* value, void*& p) {
+    typedef typename Elem<T, true>::type elem_type;
     typename Elem<T, true>::type* pt = (typename Elem<T, true>::type*)value;
     for (int i = 0; i < T::capacity; ++i) {
       *((len_t*)p) = EncodeSizeGetter<typename Elem<T, true>::type, true, false>::size(&pt[i]);
       p = ((len_t*)p)+1;
-      p = __encode(pt[i], p);
+      p = __do_encode(pt[i], elem_type::kFieldsInfos[0], p);
     }
   }
 };
@@ -147,11 +148,12 @@ struct Decoder {
 template<typename T>
 struct Decoder<T, true, true> {
   static void decode(void* value, void*& p, size_t len) {
+    typedef typename Elem<T, true>::type elem_type;
     typename Elem<T, true>::type* dest = (typename Elem<T, true>::type*)value;
     for (int i = 0; i < T::capacity; ++i) {
       //TODO: check dest[i] not exceeds total_len.
       len_t len  = *(len_t*)p; p = ((len_t*)p)+1;
-      p = __decode(dest[i], p, len); 
+      p = __do_decode(dest[i], elem_type::kFieldsInfos[0], p, len); 
     }
   }
 };
@@ -159,7 +161,7 @@ struct Decoder<T, true, true> {
 template<typename T>
 struct Decoder<T, true, false> {
   static void decode(void* value, void*& p, size_t len) {
-    p = __decode(*(Serializable*)value, p, len);
+    p = __do_decode(*(T*)value, T::kFieldsInfos[0], p, len);
   }
 };
 
@@ -172,8 +174,8 @@ struct Decoder<string, isSerializable, isArray> {
 };
 
 /*----------------------------------------------------------------------------*/
-void* __do_encode(const Serializable& d, FieldInfo* field_infos, void* p) {
-  for (const FieldInfo* fi = fields_infos[0]; fi->tag_ != kTagInvalid; ++fi) {
+void* __do_encode(const Serializable& d, const FieldInfo& field_infos, void* p) {
+  for (const FieldInfo* fi = &field_infos; fi->tag_ != kTagInvalid; ++fi) {
     *((tag_t*)p) = fi->tag_;
     p = ((tag_t*)p)+1;
 
@@ -188,19 +190,20 @@ void* __do_encode(const Serializable& d, FieldInfo* field_infos, void* p) {
 }
 
 //TODO: return NULL when decode failed
-void* __do_decode(Serializable& d, FieldInfo* field_infos, void* p, size_t total_len) {
+void* __do_decode(Serializable& d, const FieldInfo& field_infos, void* p, size_t total_len) {
   size_t field_count = 0;
-  for (const FieldInfo* fi = fields_infos[0]; fi->tag_ != kTagInvalid; ++fi) {
+  for (const FieldInfo* fi = &field_infos; fi->tag_ != kTagInvalid; ++fi) {
     field_count++;
   }
 
   void* end = (void*)(((uint8_t*)p) + total_len);
+  
   while (p < end) {
     tag_t t = *(tag_t*)p;   p = ((tag_t*)p)+1;
     len_t len = *(len_t*)p; p = ((len_t*)p)+1;
     
     if ( t > 0 && t <= field_count ) {
-      const FieldInfo* fi = fields_infos[t - 1];
+      const FieldInfo* fi = &(&field_infos)[t - 1];
       void* buf = (void*)(((uint8_t*)&d)+fi->offset_);
       (*fi->decode_func_)(buf, p, len);
     } else {
@@ -210,9 +213,9 @@ void* __do_decode(Serializable& d, FieldInfo* field_infos, void* p, size_t total
   return p;
 }
 
-size_t __do_get_size(const Serializable& d, FieldInfo* field_infos) {
+size_t __do_get_size(const Serializable& d, const FieldInfo& field_infos) {
   size_t s = 0;
-  for (const FieldInfo* fi = fields_infos[0]; fi->tag_ != kTagInvalid; ++fi) {
+  for (const FieldInfo* fi = &field_infos; fi->tag_ != kTagInvalid; ++fi) {
     s += sizeof(tag_t) + sizeof(len_t);
     void* value = (void*)(((uint8_t*)&d)+fi->offset_);
     s += fi->field_encoded_size_func_(value);
@@ -337,20 +340,20 @@ TEST_F(t, SingleFieldData__size_of_struct__should_be_total_of__TLVs) {
   SingleFieldData sfd;
   int i;
   
-  EXPECT_EQ(ENCODE_SIZE_TLV(i, int), __get_size(sfd));
+  EXPECT_EQ(ENCODE_SIZE_TLV(i, int), __get_size(SingleFieldData, sfd));
 }
 
 TEST_F(t, SingleStringData__should_able_to_encode__string_field__in_TLV) {
   SingleStringData ssd;
   ssd.a = "abc";
 
-  EXPECT_EQ(ENCODE_SIZE_TLV(ssd.a, string), __get_size(ssd));
+  EXPECT_EQ(ENCODE_SIZE_TLV(ssd.a, string), __get_size(SingleStringData, ssd));
 }
 
 TEST_F(t, DataX__size_of_struct__should_be_total_of__TLVs) {
   DataX dx;
   int i;
-  EXPECT_EQ(ENCODE_SIZE_TLV(i, int)/*a*/ + ENCODE_SIZE_TLV(i, int)/*b*/, __get_size(dx));
+  EXPECT_EQ(ENCODE_SIZE_TLV(i, int)/*a*/ + ENCODE_SIZE_TLV(i, int)/*b*/, __get_size(DataX, dx));
 }
 
 TEST_F(t, DataWithNested__size_of_struct_with_nested_struct) {
@@ -363,14 +366,14 @@ TEST_F(t, DataWithNested__size_of_struct_with_nested_struct) {
   bool b;
 
   size_t expected = ENCODE_SIZE_TLV(i, int) /*a*/
-                  + ENCODE_SIZE_TL /*TL of nested X*/ + __get_size(dx) /*encoded X*/
+                  + ENCODE_SIZE_TL /*TL of nested X*/ + __get_size(DataX, dx) /*encoded X*/
                   + ENCODE_SIZE_TLV(i, int)  /*b*/
                   + ENCODE_SIZE_TLV(c, char) /*c*/
                   + ENCODE_SIZE_TLV(a3, dataex::array<char, 3>)/*d*/
                   + ENCODE_SIZE_TLV(s, string)/*e*/
                   + ENCODE_SIZE_TLV(b, bool);
   
-  EXPECT_EQ(expected, __get_size(dwn));
+  EXPECT_EQ(expected, __get_size(DataWithNested, dwn));
 }
 
 /*----------------------------------------------------------------------------*/
@@ -378,7 +381,7 @@ TEST_F(t, SingleFieldData__should_able_to_encode_SingleFieldData) {
   SingleFieldData x;
   x.a = 0x12345678;
 
-  __encode(x, buf_);
+  __encode(SingleFieldData, x, buf_);
 
   char expected[] = { 0x01, 0x04, 0x00, 0x78, 0x56, 0x34, 0x12};
   EXPECT_TRUE(ArraysMatch(expected, buf_));
@@ -388,7 +391,7 @@ TEST_F(t, SingleStringData_should_able_to_encode_data_with_string_field) {
   SingleStringData ssd;
   ssd.a = "abc";
 
-  __encode(ssd, buf_);
+  __encode(SingleStringData, ssd, buf_);
 
   char expected[] = { 0x01, 0x03, 0x00, 'a', 'b', 'c'};
   EXPECT_TRUE(ArraysMatch(expected, buf_));
@@ -399,7 +402,7 @@ TEST_F(t, SingleStringData_should_able_to_encode__bytes_contains_zero__with_stri
   char data_with_zero[] = {'a', '\0', 'b', '\0', 'c', '\0'};
   ssd.a = string(data_with_zero, sizeof(data_with_zero));
 
-  __encode(ssd, buf_);
+  __encode(SingleStringData, ssd, buf_);
 
   char expected[] = { 0x01, 0x06, 0x00, 'a', '\0', 'b', '\0', 'c', '\0'};
   EXPECT_TRUE(ArraysMatch(expected, buf_));
@@ -409,7 +412,7 @@ TEST_F(t, DataX_should_able_to_encode_normal_struct) {
   DataX x;
   x.a = 0x12345678;
   x.b = 0x11223344;
-  __encode(x, buf_);
+  __encode(DataX, x, buf_);
 
   char expected[] = { 0x01, 0x04, 0x00, 0x78, 0x56, 0x34, 0x12
                     , 0x02, 0x04, 0x00, 0x44, 0x33, 0x22, 0x11};
@@ -432,14 +435,14 @@ TEST_F(t, DataXArray_should_able_to__encode__struct_with_nested_struct_array) {
   dxa.a[1].a = 0xcafebabe;
   dxa.a[1].b = 0xdeadbeef;
                       
-  __encode(dxa, buf_);
+  __encode(DataXArray, dxa, buf_);
   EXPECT_TRUE(ArraysMatch(DataXArray_expected, buf_));
 }
 
 TEST_F(t, DataXArray_should_able_to__decode___struct_with_nested_struct_array) {
   DataXArray dxb;
   
-  __decode(dxb, DataXArray_expected, sizeof(DataXArray_expected));
+  __decode(DataXArray, dxb, DataXArray_expected, sizeof(DataXArray_expected));
   
   EXPECT_EQ(0x00112233, dxb.a[0].a);
   EXPECT_EQ(0x13245768, dxb.a[0].b);
@@ -461,7 +464,7 @@ TEST_F(t, DataWithNested_should_able_to_encode_struct_with_nested_struct) {
   xn.e = string(buf_with_zero, sizeof(buf_with_zero));
   xn.f = true;
 
-  __encode(xn, buf_);
+  __encode(DataWithNested, xn, buf_);
 
   char expected[] = { 0x01, 0x04, 0x00, 0xBE, 0xBA, 0xFE, 0xCA
                              , 0x02, 0x0E, 0x00 /*T and L of nested X*/
@@ -481,7 +484,7 @@ TEST_F(t, SingleFieldData__should_able_to_decode_SingleFieldData) {
   SingleFieldData x;
   char expected[] = { 0x01, 0x04, 0x00, 0x78, 0x56, 0x34, 0x12};
 
-  __decode(x, expected, sizeof(expected));
+  __decode(SingleFieldData, x, expected, sizeof(expected));
 
   EXPECT_EQ(0x12345678, x.a);
 }
@@ -490,7 +493,7 @@ TEST_F(t, SingleStringData__should_able_to_dncode_data_with_string_field) {
   SingleStringData ssd;
   char expected[] = { 0x01, 0x04, 0x00, 'a', 'b', 'c', '\0'};
   
-  __decode(ssd, expected, sizeof(expected));
+  __decode(SingleStringData, ssd, expected, sizeof(expected));
   EXPECT_STREQ(ssd.a.c_str(), "abc");
 }
 
@@ -499,7 +502,7 @@ TEST_F(t, SingleStringData__should_able_to_decode__bytes_contains_zero__with_str
   char expected[] = { 0x01, 0x06, 0x00, 'a', '\0', 'b', '\0', 'c', '\0'};
   char data_with_zero[] = {'a', '\0', 'b', '\0', 'c', '\0'};
 
-  __decode(ssd, expected, sizeof(expected));  
+  __decode(SingleStringData, ssd, expected, sizeof(expected));  
   EXPECT_TRUE(ArraysMatch(data_with_zero, ssd.a.c_str()));
 }
 
@@ -508,7 +511,7 @@ TEST_F(t, DataX__should_able_to_decode_normal_struct) {
   char expected[] = { 0x01, 0x04, 0x00, 0x78, 0x56, 0x34, 0x12
                              , 0x02, 0x04, 0x00, 0x44, 0x33, 0x22, 0x11};
 
-  __decode(x, expected, sizeof(expected));
+  __decode(DataX, x, expected, sizeof(expected));
 
   EXPECT_EQ(0x12345678, x.a);
   EXPECT_EQ(0x11223344, x.b);
@@ -527,7 +530,7 @@ TEST_F(t, DataWithNested__should_able_to_decode_struct_with_nested_struct) {
                              , 0x06, 0x05, 0x00, 'h', 'e', 'l', 'l', 'o'
                              , 0x07, 0x01, 0x00, 0x01};
 
-  __decode(xn, expected, sizeof(expected));
+  __decode(DataWithNested, xn, expected, sizeof(expected));
   
   EXPECT_EQ(0xCAFEBABE, xn.a);
   EXPECT_EQ(0x12345678, xn.x.a);
@@ -548,7 +551,7 @@ TEST_F(t, DataX__should_ignore_unknown_tag__WHEN___decode_normal_struct) {
                              , 0x03, 0x04, 0x00, 0x78, 0x56, 0x34, 0x12 /*unexpected tag 0x03*/
                              , 0x02, 0x04, 0x00, 0x44, 0x33, 0x22, 0x11};
 
-  __decode(x, expected, sizeof(expected));
+  __decode(DataX, x, expected, sizeof(expected));
   
   EXPECT_EQ(0x12345678, x.a);
   EXPECT_EQ(0x11223344, x.b);
@@ -567,7 +570,7 @@ TEST_F(t, DataWithNested__should_ignore_unknown_tag__WHEN__decode_struct_with_ne
                              , 0x03, 0x04, 0x00, 0xEF, 0xBE, 0xAD, 0xDE
                              , 0x04, 0x01, 0x00, 0x45};
 
-  __decode(xn, expected, sizeof(expected));
+  __decode(DataWithNested, xn, expected, sizeof(expected));
   
   EXPECT_EQ(0xCAFEBABE, xn.a);
   EXPECT_EQ(0x12345678, xn.x.a);
