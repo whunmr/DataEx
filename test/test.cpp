@@ -85,7 +85,7 @@ struct EncodeSizeGetter {
 template<typename T>
 struct EncodeSizeGetter<T, true, false> {
   static size_t size(const void* t) {
-    return T::size(t);
+    return __get_size(*((const T*)t));
   }
 };
 
@@ -150,6 +150,7 @@ struct EncodeSizeGetter<string> {
 /*----------------------------------------------------------------------------*/
 void* __encode(const Serializable& d, void* p);
 void* __decode(Serializable& d, void* p, size_t total_len);
+size_t __get_size(const Serializable& d);
 
 template<typename T, bool isSerializable, bool isArray>
 struct Encoder {
@@ -342,6 +343,16 @@ void* __decode(Serializable& d, void* p, size_t total_len) {
   return p;
 }
 
+size_t __get_size(const Serializable& d) {
+  size_t s = 0;
+  for (const FieldInfo* fi = &d.fields_infos_[0]; fi->tag_ != kTagInvalid; ++fi) {
+    s += sizeof(tag_t) + sizeof(len_t);
+    void* value = (void*)(((uint8_t*)&d)+fi->offset_);
+    s += fi->field_encoded_size_func_(value);
+  }
+  return s;
+}
+
 /*----------------------------------------------------------------------------*/
 #define DECLARE_DATA_CLASS_BEGIN(_NAME)  \
 namespace __NS_##_NAME {                 \
@@ -462,21 +473,21 @@ struct t : public ::testing::Test {
 TEST_F(t, SingleFieldData__size_of_struct__should_be_total_of__TLVs) {
   SingleFieldData sfd;
   int i;
-
-  EXPECT_EQ(ENCODE_SIZE_TLV(i, int), SingleFieldData::size(&sfd));
+  
+  EXPECT_EQ(ENCODE_SIZE_TLV(i, int), __get_size(sfd));
 }
 
 TEST_F(t, SingleStringData__should_able_to_encode__string_field__in_TLV) {
   SingleStringData ssd;
   ssd.a = "abc";
 
-  EXPECT_EQ(ENCODE_SIZE_TLV(ssd.a, string), SingleStringData::size(&ssd));
+  EXPECT_EQ(ENCODE_SIZE_TLV(ssd.a, string), __get_size(ssd));
 }
 
 TEST_F(t, DataX__size_of_struct__should_be_total_of__TLVs) {
   DataX dx;
   int i;
-  EXPECT_EQ(ENCODE_SIZE_TLV(i, int)/*a*/ + ENCODE_SIZE_TLV(i, int)/*b*/, DataX::size(&dx));
+  EXPECT_EQ(ENCODE_SIZE_TLV(i, int)/*a*/ + ENCODE_SIZE_TLV(i, int)/*b*/, __get_size(dx));
 }
 
 TEST_F(t, DataWithNested__size_of_struct_with_nested_struct) {
@@ -489,14 +500,14 @@ TEST_F(t, DataWithNested__size_of_struct_with_nested_struct) {
   bool b;
 
   size_t expected = ENCODE_SIZE_TLV(i, int) /*a*/
-                  + ENCODE_SIZE_TL /*TL of nested X*/ + DataX::size(&dx) /*encoded X*/
+                  + ENCODE_SIZE_TL /*TL of nested X*/ + __get_size(dx) /*encoded X*/
                   + ENCODE_SIZE_TLV(i, int)  /*b*/
                   + ENCODE_SIZE_TLV(c, char) /*c*/
                   + ENCODE_SIZE_TLV(a3, dataex::array<char, 3>)/*d*/
                   + ENCODE_SIZE_TLV(s, string)/*e*/
                   + ENCODE_SIZE_TLV(b, bool);
   
-  EXPECT_EQ(expected, DataWithNested::size(&dwn));
+  EXPECT_EQ(expected, __get_size(dwn));
 }
 
 /*----------------------------------------------------------------------------*/
@@ -717,8 +728,7 @@ float
 int64
 uint64
 
-- remove cout << DataXArray::size(&dxa) << endl; from type;
-  using EncodeSizeGetter instead.
+- extract to common getsize method.  
 - all kinds of compatiblity tests. new old tests.  
 ------------------------------------------------------------------------------*/
 
